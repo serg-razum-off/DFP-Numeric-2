@@ -1,0 +1,7 @@
+FileName,Meaning,url
+BCHAIN-AVBLS.csv,Bitcoin Average Block Size,https://www.quandl.com/data/BCHAIN/AVBLS-Bitcoin-Average-Block-Size
+BCHAIN-HRATE.csv,Bitcoin Hash Rate,https://www.quandl.com/data/BCHAIN/HRATE-Bitcoin-Hash-Rate
+BCHAIN-MIREV.csv,Bitcoin Miners Revenue,https://www.quandl.com/data/BCHAIN/MIREV-Bitcoin-Miners-Revenue
+BCHAIN-MWNTD.csv,Bitcoin My Wallet Number of Transaction Per Day,https://www.quandl.com/data/BCHAIN/MWNTD-Bitcoin-My-Wallet-Number-of-Transaction-Per-Day
+BCHAIN-TOTBC.csv,Total Bitcoins,https://www.quandl.com/data/BCHAIN/TOTBC-Total-Bitcoins
+BCHAIN-CPTRA.csv,Bitcoin Cost Per Transaction,https://www.quandl.com/data/BCHAIN/CPTRA-Bitcoin-Cost-Per-Transaction
