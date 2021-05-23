@@ -1,4 +1,5 @@
 FileName,Meaning,url
+BTC-RatesHistData.csv,Bitcoin Exchange Rates Statistics,https://www.investing.com/crypto/bitcoin/historical-data
 BCHAIN-AVBLS.csv,Bitcoin Average Block Size,https://www.quandl.com/data/BCHAIN/AVBLS-Bitcoin-Average-Block-Size
 BCHAIN-HRATE.csv,Bitcoin Hash Rate,https://www.quandl.com/data/BCHAIN/HRATE-Bitcoin-Hash-Rate
 BCHAIN-MIREV.csv,Bitcoin Miners Revenue,https://www.quandl.com/data/BCHAIN/MIREV-Bitcoin-Miners-Revenue
