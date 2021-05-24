@@ -1,6 +1,9 @@
 import pandas as pd
+import numpy as np
 import os
 import gc
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 class DataManager:
@@ -43,7 +46,7 @@ class DataManager:
 
         # converting str repr of floats into floats
         cols = ('Price', 'Open', 'High', 'Low')
-        if isinstance(btc_exch_raw[cols[0]][0], str):
+        if btc_exch_raw[cols[0]].dtype != np.number:
             # tmp = btc_exch_raw.loc[:, cols].copy()
             btc_exch_raw.loc[:, cols] = (
                 btc_exch_raw.loc[:, cols]
@@ -80,6 +83,81 @@ class DataManager:
                 curr_file['Btc_Mined'] = -curr_file['Value'].diff()
                 curr_file['Btc_Mined'].fillna(method='bfill', inplace=True)  # filling last day (Nan) as one before
             curr_file.set_index('Date', inplace=True)
-            curr_file.rename(columns={"Value": file_name.split('-')[-1].split(".")[0]}, inplace=True) # rename Value col
+            curr_file.rename(columns={"Value": file_name.split('-')[-1].split(".")[0]},
+                             inplace=True)  # rename Value col
 
             self.data_btc = self.data_btc.merge(curr_file, right_index=True, left_index=True)
+
+    def _plt_plot_timeseries(self, series: str, titles=None, color="#8591e0", ls="-", figsize=(10, 4), rc=None,
+                             ax=None):
+        """
+        Plots a timeseries plot
+
+        :param series: Name of the (Series that has index of datetime type)
+        :param titles: titles={'xlabel':xlabel, 'ylabel':ylabel, 'title':title}
+        :param color: line color "#8591e0"
+        :param ls: line style "-'
+        :param figsize: default figsize=(10, 4)
+        :param rc: rc dict for sns styling the chart def: {"grid.linewidth": 1, }
+        :param ax: axes to plot timeseries.
+        :return:
+        """
+
+        if rc is None:
+            rc = {"grid.linewidth": 1, }
+
+        if titles is None:
+            titles = {}
+
+        titles['xlabel'] = titles['xlabel'] if 'xlabel' in titles else None
+        titles['ylabel'] = titles['ylabel'] if 'ylabel' in titles else None
+        titles['title'] = titles['title'] if 'title' in titles else None
+
+        if ax is None:
+            ax = plt.subplots(figsize=figsize)[1]
+
+        # plt
+        ax.plot(self.data_btc[series], color=color, ls=ls)
+        ax.set_xlabel(titles['xlabel'])
+        ax.set_ylabel(titles['ylabel'])
+        ax.set_title(titles['title'], fontweight="bold")
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False);
+
+        # applying styling
+        sns.set_context("poster", font_scale=.6, rc={"grid.linewidth": 1})
+
+        # styling
+        plt.gca().spines['top'].set_visible(False)
+        plt.gca().spines['right'].set_visible(False)
+
+    def preview_features(self, features_to_plt=None, features_skip=None, fig_size=(25, 20),
+                         fig_title="Previewing BTC data"):
+        """
+        plots specified features as timeseries
+
+        :param features_to_plt: if some features are to be plot
+        :param features_skip: if some features are to be skipped
+        :param fig_size: figsize of the combined charts -- tuple
+        :param fig_title: title of the combined figure
+        :return: None
+        """
+        feat_to_plt = []
+
+        if features_to_plt is not None:
+            feat_to_plt = [f for f in self.data_btc.columns if f in features_to_plt]
+
+        if features_skip is not None:
+            feat_to_plt = [f for f in self.data_btc.columns if f not in features_skip]
+
+        if len(feat_to_plt) == 0:
+            feat_to_plt = self.data_btc.columns
+
+        fig, ax = plt.subplots(len(feat_to_plt), 1)
+        fig.suptitle(fig_title, fontsize=17, fontweight='bold')
+
+        for i, feature in enumerate(feat_to_plt):
+            self._plt_plot_timeseries(feature, figsize=(17, 5),
+                                      titles=dict(title=feature), ax=ax[i], color="#8591e0")
+
+        fig.set_size_inches(fig_size)
