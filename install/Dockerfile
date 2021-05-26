@@ -7,7 +7,6 @@ RUN apt-get update && apt-get install -y git
 RUN /usr/bin/python3 -m pip install --upgrade pip
 
 RUN mkdir -p /tf
-RUN mkdir -p /data
 WORKDIR /tf
 ENV PYTHONPATH "${PYTHONPATH}:/tf"
 
