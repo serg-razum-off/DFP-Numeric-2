@@ -8,7 +8,7 @@ import seaborn as sns
 
 class DataManager:
     """
-    SR: reads the num files related to trades of bitcoin
+    SR: reads the files related to trades of bitcoin and preprocesses them
     """
 
     def __init__(self, dir_path: str, btc_exch_rates_filename: str):
@@ -25,6 +25,7 @@ class DataManager:
         self._set_self_data_btc(dir_path, btc_exch_rates_filename)
         self._self_data_btc_Add_other_metrics(dir_path=dir_path)
 
+        
     def _set_self_data_btc(self, dir_path, file_name):
         # reading exch_rate csv
         btc_exch_raw = (
@@ -84,7 +85,7 @@ class DataManager:
                 curr_file['Btc_Mined'].fillna(method='bfill', inplace=True)  # filling last day (Nan) as one before
             curr_file.set_index('Date', inplace=True)
             curr_file.rename(columns={"Value": file_name.split('-')[-1].split(".")[0]},
-                             inplace=True)  # rename Value col
+                             inplace=True)  # rename Value col to the core part of filename
 
             self.data_btc = self.data_btc.merge(curr_file, right_index=True, left_index=True)
 
@@ -134,7 +135,7 @@ class DataManager:
     def preview_features(self, features_to_plt=None, features_skip=None, fig_size=(25, 20),
                          fig_title="Previewing BTC data"):
         """
-        plots specified features as timeseries
+        plots specified features as timeseries 
 
         :param features_to_plt: if some features are to be plot
         :param features_skip: if some features are to be skipped
