@@ -4,6 +4,7 @@ import os
 import gc
 import matplotlib.pyplot as plt
 import seaborn as sns
+import glob
 
 
 class DataManager:
@@ -21,11 +22,12 @@ class DataManager:
                                     All have to be in same format: dateCol, ValCol
         """
         self.data_btc = None
+        self.data_files = [f for f in filter(os.path.isfile, os.listdir(dir_path))]
+        self.data_files_notes = pd.read_csv(os.path.join(dir_path, "files_properties.csv"))
         self._btc_exch_rates_filename = btc_exch_rates_filename
         self._set_self_data_btc(dir_path, btc_exch_rates_filename)
         self._self_data_btc_Add_other_metrics(dir_path=dir_path)
 
-        
     def _set_self_data_btc(self, dir_path, file_name):
         # reading exch_rate csv
         btc_exch_raw = (
@@ -68,24 +70,27 @@ class DataManager:
         """
         Gets CSV files (columns: date, value), merges them, adds to Exchange Rate
 
-        :param dir_path: path to csv files
-        :param file_list: list of file_names that have to be extracted and added to exch rate
+        :param dir_path: path to csv files        
         """
         result = None
-        file_list = [f for f in os.listdir(dir_path)
-                     if (self._btc_exch_rates_filename not in f)
-                     and ("propert" not in f)]
+        # getting paths of additional files (same shape) and their names
+        files_paths = [f for f in glob.glob(os.path.join(dir_path, "*.csv"))
+                       if (self._btc_exch_rates_filename not in f)
+                       and ("propert" not in f)]
+        file_names = list(map(lambda X: X.split('/')[-1], files_paths))
 
-        for file_name in file_list:
-            curr_file = pd.read_csv(os.path.join(dir_path, file_name))
+        for i, file_path in enumerate(files_paths):
+            curr_file = pd.read_csv(file_path)
             curr_file['Date'] = pd.to_datetime(curr_file['Date'])
             curr_file['Value'] = curr_file['Value'].astype(float)
-            if 'TOTBC' in file_name:
+            if 'TOTBC' in file_path:
                 curr_file['Btc_Mined'] = -curr_file['Value'].diff()
                 curr_file['Btc_Mined'].fillna(method='bfill', inplace=True)  # filling last day (Nan) as one before
+
             curr_file.set_index('Date', inplace=True)
-            curr_file.rename(columns={"Value": file_name.split('-')[-1].split(".")[0]},
-                             inplace=True)  # rename Value col to the core part of filename
+            # rename Value col to the core part of filename
+            curr_file.rename(columns={"Value": file_names[i].split('-')[-1].split(".")[0]},
+                             inplace=True)
 
             self.data_btc = self.data_btc.merge(curr_file, right_index=True, left_index=True)
 
