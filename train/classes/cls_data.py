@@ -23,7 +23,7 @@ class DataManager:
         """
         self.data_btc = None
         self.data_files = [f for f in filter(os.path.isfile, os.listdir(dir_path))]
-        self.data_files_notes = pd.read_csv(os.path.join(dir_path, "files_properties.csv"))
+        self.data_files_prop = pd.read_csv(os.path.join(dir_path, "files_properties.csv"))
         self._btc_exch_rates_filename = btc_exch_rates_filename
         self._set_self_data_btc(dir_path, btc_exch_rates_filename)
         self._self_data_btc_Add_other_metrics(dir_path=dir_path)
@@ -93,6 +93,18 @@ class DataManager:
                              inplace=True)
 
             self.data_btc = self.data_btc.merge(curr_file, right_index=True, left_index=True)
+            
+        #check if all files from data folder are included to files_properties.csv
+        files_in_filesproperties = self.data_files_prop["FileName"].dropna().to_list()
+        table_columns = self.data_btc.columns.to_list()
+            
+        missed_files = [f for f in  
+                            [col for col in table_columns if col not in ['Price', 'Open', 'High', 'Low', 'Vol', 'Growth', 'Btc_Mined']]
+                        if not any(f in s for s in files_in_filesproperties)]
+
+        if len(missed_files) > 0:
+            print("!!! add to files_properties descr of files with these columns: ")
+            print(missed_files)
 
     def _plt_plot_timeseries(self, series: str, titles=None, color="#8591e0", ls="-", figsize=(10, 4), rc=None,
                              ax=None):
