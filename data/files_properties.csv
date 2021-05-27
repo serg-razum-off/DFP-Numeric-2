@@ -8,3 +8,4 @@ BCHAIN-TOTBC.csv,Total Bitcoins in Circulation,https://www.quandl.com/data/BCHAI
 BCHAIN-CPTRA.csv,Bitcoin Cost Per Transaction,https://www.quandl.com/data/BCHAIN/CPTRA-Bitcoin-Cost-Per-Transaction,https://www.quandl.com/api/v3/datasets/BCHAIN/CPTRA.csv?api_key=bTPes7LjqbErjvtYRsWu
 BCHAIN-TRVOU.csv,Bitcoin USD Exchange Trade Volume,https://www.quandl.com/data/BCHAIN/TRVOU-Bitcoin-USD-Exchange-Trade-Volume,https://www.quandl.com/api/v3/datasets/BCHAIN/TRVOU.csv?api_key=bTPes7LjqbErjvtYRsWu
 BCHAIN-MWTRV.csv,Bitcoin My Wallet Transaction Volume,https://www.quandl.com/data/BCHAIN/MWTRV-Bitcoin-My-Wallet-Transaction-Volume,https://www.quandl.com/api/v3/datasets/BCHAIN/MWTRV.csv?api_key=bTPes7LjqbErjvtYRsWu
+BCHAIN-MWNUS.csv,Bitcoin My Wallet Number of Users,https://www.quandl.com/data/BCHAIN/MWNUS-Bitcoin-My-Wallet-Number-of-Users,https://www.quandl.com/api/v3/datasets/BCHAIN/MWNUS.csv?api_key=bTPes7LjqbErjvtYRsWu

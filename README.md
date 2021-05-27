@@ -18,6 +18,9 @@ $ docker run -v $(pwd):/tf -it --rm -p 8888:8888 btc_price_prediction
 FROM tensorflow/tensorflow:nightly-jupyter
 
 RUN apt-get update && apt-get install -y git
+# SR as per https://askubuntu.com/questions/94102/what-is-the-difference-between-apt-get-update-and-upgrade
+RUN apt-get -y upgrade 
+
 RUN /usr/bin/python3 -m pip install --upgrade pip
 
 RUN mkdir -p /tf
@@ -29,12 +32,12 @@ RUN pip install -r requirements.txt
 ```
 
 ###**Data sources**: <br>
-* Bitcoin Exchange Rates Statistics https://www.investing.com/crypto/bitcoin/historical-data <br>
-* Bitcoin Average Block Size https://www.quandl.com/data/BCHAIN/AVBLS-Bitcoin-Average-Block-Size <br>
-* Bitcoin Hash Rate https://www.quandl.com/data/BCHAIN/HRATE-Bitcoin-Hash-Rate <br>
-* Bitcoin Miners Revenue https://www.quandl.com/data/BCHAIN/MIREV-Bitcoin-Miners-Revenue <br>
-* Bitcoin My Wallet Number of Transaction Per Day https://www.quandl.com/data/BCHAIN/MWNTD-Bitcoin-My-Wallet-Number-of-Transaction-Per-Day <br>
+* Bitcoin Exchange Rates Statistics https://www.investing.com/crypto/bitcoin/historical-data
+* Bitcoin Average Block Size https://www.quandl.com/data/BCHAIN/AVBLS-Bitcoin-Average-Block-Size
+* Bitcoin Hash Rate https://www.quandl.com/data/BCHAIN/HRATE-Bitcoin-Hash-Rate 
+* Bitcoin Miners Revenue https://www.quandl.com/data/BCHAIN/MIREV-Bitcoin-Miners-Revenue 
+* Bitcoin My Wallet Number of Transaction Per Day https://www.quandl.com/data/BCHAIN/MWNTD-Bitcoin-My-Wallet-Number-of-Transaction-Per-Day
 * Bitcoin Cost Per Transaction https://www.quandl.com/data/BCHAIN/CPTRA-Bitcoin-Cost-Per-Transaction
 * Bitcoin USD Exchange Trade Volume https://www.quandl.com/data/BCHAIN/TRVOU-Bitcoin-USD-Exchange-Trade-Volume
 * Bitcoin My Wallet Transaction Volume https://www.quandl.com/data/BCHAIN/MWTRV-Bitcoin-My-Wallet-Transaction-Volume
-
+* Bitcoin My Wallet Number of Users https://www.quandl.com/data/BCHAIN/MWNUS-Bitcoin-My-Wallet-Number-of-Users
