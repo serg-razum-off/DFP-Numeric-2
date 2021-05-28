@@ -106,16 +106,17 @@ class DataManager:
             print("!!! add to files_properties descr of files with these columns: ")
             print(missed_files)
 
-    def _plt_plot_timeseries(self, series: str, titles=None, color="#8591e0", ls="-", figsize=(10, 4), rc=None,
+    def _plt_plot_timeseries(self, series: str, titles=None, color="#8591e0", ls="-", fig_size=(10, 4), rc=None,
                              ax=None):
         """
         Plots a timeseries plot
 
         :param series: Name of the (Series that has index of datetime type)
-        :param titles: titles={'xlabel':xlabel, 'ylabel':ylabel, 'title':title}
+        :param titles: titles={'xlabel':xlabel, 'ylabel':ylabel, 'title':title, 'title_loc':title_loc}
+                title_loc --> location of the title
         :param color: line color "#8591e0"
         :param ls: line style "-'
-        :param figsize: default figsize=(10, 4)
+        :param fig_size: default figs_size=(10, 4)
         :param rc: rc dict for sns styling the chart def: {"grid.linewidth": 1, }
         :param ax: axes to plot timeseries.
         :return:
@@ -125,20 +126,21 @@ class DataManager:
             rc = {"grid.linewidth": 1, }
 
         if titles is None:
-            titles = {}
+            titles = {'loc':'center'}
 
         titles['xlabel'] = titles['xlabel'] if 'xlabel' in titles else None
         titles['ylabel'] = titles['ylabel'] if 'ylabel' in titles else None
         titles['title'] = titles['title'] if 'title' in titles else None
+        titles['title_loc'] = titles['title_loc'] if 'title_loc' in titles else 'center'
 
         if ax is None:
-            ax = plt.subplots(figsize=figsize)[1]
+            ax = plt.subplots(figsize=fig_size)[1]
 
         # plt
         ax.plot(self.data_btc[series], color=color, ls=ls)
         ax.set_xlabel(titles['xlabel'])
         ax.set_ylabel(titles['ylabel'])
-        ax.set_title(titles['title'], fontweight="bold")
+        ax.set_title(titles['title'], fontweight="bold", loc=titles['title_loc'])
         ax.spines["right"].set_visible(False)
         ax.spines["top"].set_visible(False);
 
@@ -149,8 +151,8 @@ class DataManager:
         plt.gca().spines['top'].set_visible(False)
         plt.gca().spines['right'].set_visible(False)
 
-    def preview_features(self, features_to_plt=None, features_skip=None, fig_size=(25, 20),
-                         fig_title="Previewing BTC data"):
+    def preview_features_ts(self, features_to_plt=None, features_skip=None, fig_size=(25, 20),
+                         fig_title="Previewing BTC data", subplt_title_loc='right'):
         """
         plots specified features as timeseries 
 
@@ -172,10 +174,10 @@ class DataManager:
             feat_to_plt = self.data_btc.columns
 
         fig, ax = plt.subplots(len(feat_to_plt), 1)
-        fig.suptitle(fig_title, fontsize=17, fontweight='bold')
+        fig.suptitle(fig_title, y=.9, fontsize=17, fontweight='bold')
 
         for i, feature in enumerate(feat_to_plt):
-            self._plt_plot_timeseries(feature, figsize=(17, 5),
-                                      titles=dict(title=feature), ax=ax[i], color="#8591e0")
+            self._plt_plot_timeseries(feature, fig_size=(17, 5),
+                                      titles=dict(title=feature, title_loc=subplt_title_loc), ax=ax[i], color="#8591e0")
 
         fig.set_size_inches(fig_size)
