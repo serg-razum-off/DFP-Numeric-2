@@ -3,6 +3,7 @@ import numpy as np
 import os
 import gc
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import seaborn as sns
 import glob
 
@@ -106,12 +107,12 @@ class DataManager:
             print("!!! add to files_properties descr of files with these columns: ")
             print(missed_files)
 
-    def _plt_plot_timeseries(self, series: str, titles=None, color="#8591e0", ls="-", fig_size=(10, 4), rc=None,
-                             ax=None):
+    def plt_plot_timeseries(self, series_name:str, titles=None, color="#8591e0", ls="-", fig_size=(10, 4), rc=None,
+                             ax=None, filters=None, merge_condition="and", annotate=False):
         """
         Plots a timeseries plot
 
-        :param series: Name of the (Series that has index of datetime type)
+        :param series: Series of DF
         :param titles: titles={'xlabel':xlabel, 'ylabel':ylabel, 'title':title, 'title_loc':title_loc}
                 title_loc --> location of the title
         :param color: line color "#8591e0"
@@ -119,6 +120,8 @@ class DataManager:
         :param fig_size: default figs_size=(10, 4)
         :param rc: rc dict for sns styling the chart def: {"grid.linewidth": 1, }
         :param ax: axes to plot timeseries.
+        :param filters: dict of filters. Exmpl: dict(salary=">2.5e4")
+        
         :return:
         """
 
@@ -136,13 +139,35 @@ class DataManager:
         if ax is None:
             ax = plt.subplots(figsize=fig_size)[1]
 
+        #prepaing Series
+        series = self.data_btc[series_name]
+        
+        if filters is not None:
+            query = ''
+            for key, filt in filters.items():
+                query += f'{key} {filt} {merge_condition} '
+
+            query = query.rsplit(' ', 2)[0]
+            series = self.data_btc.query(query)[series_name]
+            titles["title"] = str(titles["title"]) + f"\nquery: {query}"
+        
         # plt
-        ax.plot(self.data_btc[series], color=color, ls=ls)
+        ax.plot(series, color=color, ls=ls)
         ax.set_xlabel(titles['xlabel'])
         ax.set_ylabel(titles['ylabel'])
         ax.set_title(titles['title'], fontweight="bold", loc=titles['title_loc'])
         ax.spines["right"].set_visible(False)
         ax.spines["top"].set_visible(False);
+        
+        # annotate
+        if annotate:
+            annotations = []
+            annotations.append((series.idxmin(), series.min())) # min_val
+            annotations.append((series.idxmax(), series.max())) # max_val
+            annotations.append((series.index[0], series[0])) # last_val
+            
+            for ann in annotations:
+                ax.annotate(f'{ann[1]:,}', (mdates.date2num(ann[0]), ann[1]))
 
         # applying styling
         sns.set_context("poster", font_scale=.6, rc={"grid.linewidth": 1})
@@ -152,7 +177,7 @@ class DataManager:
         plt.gca().spines['right'].set_visible(False)
 
     def preview_features_ts(self, features_to_plt=None, features_skip=None, fig_size=(25, 20),
-                         fig_title="Previewing BTC data", subplt_title_loc='right'):
+                         fig_title="Previewing BTC TimeSeries data", subplt_title_loc='right', **kwargs):
         """
         plots specified features as timeseries 
 
@@ -177,7 +202,8 @@ class DataManager:
         fig.suptitle(fig_title, y=.9, fontsize=17, fontweight='bold')
 
         for i, feature in enumerate(feat_to_plt):
-            self._plt_plot_timeseries(feature, fig_size=(17, 5),
-                                      titles=dict(title=feature, title_loc=subplt_title_loc), ax=ax[i], color="#8591e0")
+            self.plt_plot_timeseries(feature, fig_size=(17, 5),
+                                     titles=dict(title=feature, title_loc=subplt_title_loc), 
+                                     ax=ax[i], color="#8591e0", **kwargs)
 
         fig.set_size_inches(fig_size)
