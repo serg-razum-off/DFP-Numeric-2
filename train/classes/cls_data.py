@@ -138,7 +138,7 @@ class DataManager:
         titles['ylabel'] = titles['ylabel'] if 'ylabel' in titles else None
         titles['title'] = titles['title'] if 'title' in titles else None
         titles['fontsize'] = titles['fontsize'] if 'fontsize' in titles else None
-        titles['xy'] = titles['xy'] if 'xy' in titles else None
+        titles['xy'] = titles['xy'] if 'xy' in titles else [1, 1.1]
         titles['title_loc'] = titles['title_loc'] if 'title_loc' in titles else 'center'
 
         if ax is None:
@@ -169,12 +169,12 @@ class DataManager:
         # annotate
         if annotate:
             annotations = []
-            annotations.append((series.idxmin(), series.min())) # min_val
-            annotations.append((series.idxmax(), series.max())) # max_val
-            annotations.append((series.index[0], series[0])) # last_val
+            annotations.append((series.idxmin(), series.min(), 'min')) # min_val
+            annotations.append((series.idxmax(), series.max(), 'max')) # max_val
+            annotations.append((series.index[0], series[0], 'last')) # last_val
             
             for ann in annotations:
-                ax.annotate(f'{ann[1]:,}', (mdates.date2num(ann[0]), ann[1]))
+                ax.annotate(f'{ann[1]:,} ({ann[2]})', (mdates.date2num(ann[0]), ann[1]))
 
         # applying styling
         sns.set_context("poster", font_scale=.6, rc={"grid.linewidth": 1})
@@ -188,7 +188,7 @@ class DataManager:
         gc.collect()
 
     def preview_features_ts(self, features_to_plt=None, features_skip=None, fig_size=(25, 20),
-                         fig_title="Previewing BTC TimeSeries data", subplt_title_loc='right', **kwargs):
+                         fig_title="Previewing BTC TimeSeries data", subplt_title_loc='right', xy=None, **kwargs):
         """
         plots specified features as timeseries 
 
@@ -196,6 +196,7 @@ class DataManager:
         :param features_skip: if some features are to be skipped
         :param fig_size: figsize of the combined charts -- tuple
         :param fig_title: title of the combined figure
+        :param xy: shift of the title of the subplot (need to be set not to overlap with axes ticks) 
         :return: None
         """
         feat_to_plt = []
@@ -208,13 +209,20 @@ class DataManager:
 
         if len(feat_to_plt) == 0:
             feat_to_plt = self.data_btc.columns
+        
+        if xy is None:
+            xy=[1,1]
+            
+        # print(">>>", feat_to_plt)
 
         fig, ax = plt.subplots(len(feat_to_plt), 1)
         fig.suptitle(fig_title, y=.9, fontsize=17, fontweight='bold')
+        
+        # print(fig==None, ax == None)
 
         for i, feature in enumerate(feat_to_plt):
             self.plt_plot_timeseries(feature, fig_size=(17, 5),
-                                     titles=dict(title=feature, title_loc=subplt_title_loc), 
+                                     titles=dict(title=feature, title_loc=subplt_title_loc, xy=xy), 
                                      ax=ax[i], color="#8591e0", **kwargs)
 
         fig.set_size_inches(fig_size)
