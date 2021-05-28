@@ -94,7 +94,10 @@ class DataManager:
                              inplace=True)
 
             self.data_btc = self.data_btc.merge(curr_file, right_index=True, left_index=True)
-            
+        # gc
+        curr_file = None
+        gc.collect()
+        
         #check if all files from data folder are included to files_properties.csv
         files_in_filesproperties = self.data_files_prop["FileName"].dropna().to_list()
         table_columns = self.data_btc.columns.to_list()
@@ -120,7 +123,7 @@ class DataManager:
         :param fig_size: default figs_size=(10, 4)
         :param rc: rc dict for sns styling the chart def: {"grid.linewidth": 1, }
         :param ax: axes to plot timeseries.
-        :param filters: dict of filters. Exmpl: dict(salary=">2.5e4")
+        :param filters: array of filters. Exmpl: ["salary=>2.5e4", "salary <= 1e5"]
         
         :return:
         """
@@ -134,6 +137,8 @@ class DataManager:
         titles['xlabel'] = titles['xlabel'] if 'xlabel' in titles else None
         titles['ylabel'] = titles['ylabel'] if 'ylabel' in titles else None
         titles['title'] = titles['title'] if 'title' in titles else None
+        titles['fontsize'] = titles['fontsize'] if 'fontsize' in titles else None
+        titles['xy'] = titles['xy'] if 'xy' in titles else None
         titles['title_loc'] = titles['title_loc'] if 'title_loc' in titles else 'center'
 
         if ax is None:
@@ -144,18 +149,20 @@ class DataManager:
         
         if filters is not None:
             query = ''
-            for key, filt in filters.items():
-                query += f'{key} {filt} {merge_condition} '
+            for filt in filters:
+                query += f'{filt} {merge_condition} '
 
             query = query.rsplit(' ', 2)[0]
             series = self.data_btc.query(query)[series_name]
-            titles["title"] = str(titles["title"]) + f"\nquery: {query}"
+            titles["title"] = str(titles["title"]) + f"\nfilters: {query}"
         
         # plt
         ax.plot(series, color=color, ls=ls)
         ax.set_xlabel(titles['xlabel'])
         ax.set_ylabel(titles['ylabel'])
-        ax.set_title(titles['title'], fontweight="bold", loc=titles['title_loc'])
+        ax.set_title(titles['title'], 
+                     fontweight="bold", fontsize=titles['fontsize'], loc=titles['title_loc'], 
+                     x=titles['xy'][0], y=titles['xy'][1])
         ax.spines["right"].set_visible(False)
         ax.spines["top"].set_visible(False);
         
@@ -175,6 +182,10 @@ class DataManager:
         # styling
         plt.gca().spines['top'].set_visible(False)
         plt.gca().spines['right'].set_visible(False)
+        
+        # gc
+        series = None
+        gc.collect()
 
     def preview_features_ts(self, features_to_plt=None, features_skip=None, fig_size=(25, 20),
                          fig_title="Previewing BTC TimeSeries data", subplt_title_loc='right', **kwargs):
