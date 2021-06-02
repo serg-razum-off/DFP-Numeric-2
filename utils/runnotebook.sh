@@ -12,3 +12,5 @@ else
     echo "Running with CPU only"
     sudo docker run -u $(id -u):$(id -g) -v $(pwd):/tf -it --rm -p 8888:8888 myproject
 fi
+
+# docker run -v $(pwd):/tf -it --rm -p 8888:8888 btc_price_prediction ##SR: doesn't work in any of the cases. Some bash err. For now [2021/06/02] I'm leaving it as it is

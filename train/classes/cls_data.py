@@ -149,8 +149,8 @@ class DataManager:
             print(f">> self.data_btc_normalized --> saved to {path}")
 
     # ===============================  Plotting area ==============================================
-    def plt_plot_timeseries(self, series_name: str, titles=None, color="#8591e0", ls="-", fig_size=(10, 4), rc=None,
-                            ax=None, filters=None, merge_condition="and", annotate=False):
+    
+    def plt_plot_timeseries(self, series_name: str, **kwargs):
         """
         Plots a timeseries plot
 
@@ -166,34 +166,30 @@ class DataManager:
         
         :return:
         """
-
-        if rc is None:
-            rc = {"grid.linewidth": 1, }
-
-        if titles is None:
-            titles = {'loc': 'center'}
-
-        titles['xlabel'] = titles['xlabel'] if 'xlabel' in titles else None
-        titles['ylabel'] = titles['ylabel'] if 'ylabel' in titles else None
-        titles['title'] = titles['title'] if 'title' in titles else None
-        titles['fontsize'] = titles['fontsize'] if 'fontsize' in titles else None
-        titles['xy'] = titles['xy'] if 'xy' in titles else [1, 1.1]
-        titles['title_loc'] = titles['title_loc'] if 'title_loc' in titles else 'center'
-
-        if ax is None:
-            ax = plt.subplots(figsize=fig_size)[1]
-
+        # get defaults from **kwargs
+        titles = kwargs.pop('titles') if 'titles' in kwargs else dict(loc='center', xy=[1, 1.1], title_loc='center')
+        color = kwargs.pop('color') if 'color' in kwargs else "#8591e0"
+        ls = kwargs.pop('ls') if 'ls' in kwargs else "-"
+        fig_size = kwargs.pop('fig_size') if 'fig_size' in kwargs else (10, 4)
+        rc = kwargs.pop('rc') if 'rc' in kwargs else {"grid.linewidth": 1, }
+        ax = kwargs.pop('ax') if 'ax' in kwargs else plt.subplots(figsize=fig_size)[1]
+        filters = kwargs.pop('filters') if 'filters' in kwargs else None
+        annotate = kwargs.pop('annotate') if 'annotate' in kwargs else None
+        
+        self.helpers_set_dict_default(titles, ['xlabel','ylabel','title','fontsize','xy','title_loc'])
+        
         # prepaing Series
         series = self.data_btc[series_name]
 
         if filters is not None:
-            query = ''
-            for filt in filters:
-                query += f'{filt} {merge_condition} '
+            #query = ''
+            #for filt in filters:
+            #    query += f'{filt} {merge_condition} '
 
-            query = query.rsplit(' ', 2)[0]
-            series = self.data_btc.query(query)[series_name]
-            titles["title"] = str(titles["title"]) + f"\nfilters: {query}"
+            #query = query.rsplit(' ', 2)[0]
+            #series = self.data_btc.query(query)[series_name]
+            series, query_str = self.helpers_query_df(self.data_btc, series_name, filters=filters)
+            titles["title"] = str(titles["title"]) + f"\nfilters: {query_str}"
 
         # plt
         ax.plot(series, color=color, ls=ls)
@@ -275,33 +271,44 @@ class DataManager:
         fig.set_size_inches(fig_size)
 
     # ------------------------------------------------------------------------------------------------------------------#
-    def plt_hist(self, series_name, rng=None, color=None, bins=None, titles=None, return_details=False, ax=None,
-             figsize=(10, 4), annotate=True, **kwargs):
+    def plt_hist(self, series_name, annotate=True, return_details=False, **kwargs):
         """
         SR: plots histogram.
           Att!! sensitive to NaNs!! 
           if data[column].isna().sum() > 1:
             print(f"{column} has nulls: {data[column].isna().sum()}")
             continue
-        :param series_name: Name of the series to plot
-        :param rng: range to limit x
-        :param color:
-        :param bins: int or list as per bins that have to be shown in hist. Default is Series.unique().__len__()
-        :param titles: if None, dict will be applied: {'xlabel': None, 'ylabel': None, 'title': None}
-        :param return_details: if true, (hist_txt, hist_arr) will be returned
-        :param ax: if None, will be initialized to ax = plt.subplots(figsize=figsize)[1]
-        :param figsize: default is figsize=(10, 4)
+        :param series_name: Name of the series to plot        
+        :param return_details: if True, (hist_txt, hist_arr) will be returned        
         :param annotate: if to annotate bars of histogram with numeric values
+        
+        :param kwargs: all other params
+            >> :param x",y: will be aplied to position of the title
+            >> :param bins": num of bins
+            >> :param ann_fontsize": fontsize of the bins annotations
+            >> :param rng: range to limit x
+            >> :param bins: int or list as per bins that have to be shown in hist. Default is Series.unique().__len__()
+            >> :param titles: if None, dict will be applied: {'xlabel': None, 'ylabel': None, 'title': None}
+            >> :param ax: if None, will be initialized to ax = plt.subplots(figsize=figsize)[1]
+            >> :param figsize: default is figsize=(10, 4)
+            
+            
         :return: if return_details: return hist_txt, hist_arr
         """
         
         series = self.data_btc[series_name]
         
-        if bins is None:
-            bins = len(series.unique())
+        # getting defaults from kwargs
+        ax = kwargs.pop('ax') if 'ax' in kwargs else None
+        rng = kwargs.pop('rng') if 'rng' in kwargs else None
+        bins = kwargs.pop('bins') if 'bins' in kwargs else 15
+        color = kwargs.pop('color') if 'color' in kwargs else '#537ddf'
+        figsize = kwargs.pop('figsize') if 'figsize' in kwargs else (10, 4)        
+        titles = kwargs.pop('titles') if 'titles' in kwargs else dict(title=series_name)
 
-        if titles is None:
-            titles = {'xlabel': None, 'ylabel': None, 'title': None}
+        self.helpers_set_dict_default(titles, ['xlabel', 'ylabel'])
+        
+        
         if rng is None:
             rng = [series.min(), series.max()]
             rng = None if (type(rng[0]) != int) else rng  # SR: checking if categories. cannot set rng for them
@@ -312,13 +319,21 @@ class DataManager:
         else:
             fontsize = 10
         
+        if "ann_fontsize" in kwargs:
+            ann_fontsize = kwargs.pop("ann_fontsize")
+        else:
+            ann_fontsize = int(fontsize * .9)
+        
         # print("kwargs --> ", kwargs)
-        x_title = kwargs.pop('x') # cann't send with kwargs as x is a positional arg of ax.hist()
+        # cann't send with kwargs as x is a positional arg of ax.hist()
+        x_title = kwargs.pop('x') if 'x' in kwargs else .5 
+        y_title = kwargs.pop('y') if 'y' in kwargs else 1 
+        
         hist_arr = ax.hist(series, range=rng, color=color, bins=bins, **kwargs)
         ax.set_xlabel(titles['xlabel'])
 
         ax.set_ylabel(titles['ylabel'])
-        ax.set_title(titles['title'], fontweight="bold", fontsize=fontsize, x=x_title, **kwargs)
+        ax.set_title(titles['title'], fontweight="bold", fontsize=fontsize, x=x_title, y=y_title, **kwargs)
         ax.spines["right"].set_visible(False)
         ax.spines["top"].set_visible(False);
 
@@ -330,7 +345,8 @@ class DataManager:
             bins = len(bins) - 1
         for i in range(bins):
             if (bins < 10) and annotate:
-                ax.text(hist_arr[1][i], hist_arr[0][i] + hist_arr[0][i] * shift, f"{hist_arr[0][i]:.0f}", weight='bold')
+                ax.text(hist_arr[1][i], hist_arr[0][i] + hist_arr[0][i] * shift, f"{hist_arr[0][i]:.0f}", 
+                        weight='bold', fontsize=ann_fontsize)
             hist_txt.append(f"[{hist_arr[1][i]:,.1f} - {hist_arr[1][i + 1]:,.1f}] --> [{hist_arr[0][i]:,.1f}]")
 
         # SR: annotating bars
@@ -340,15 +356,16 @@ class DataManager:
             else:
                 denum = 10
             ax.text(hist_arr[1][0], hist_arr[0][0] + hist_arr[0][0] * shift, f"{hist_arr[0][0]:.0f}",
-                    weight='bold')  # start
+                    weight='bold', fontsize=ann_fontsize)  # start
             ax.text(hist_arr[1][-2], hist_arr[0][-1] + hist_arr[0][-1] * shift, f"{hist_arr[0][-1]:.0f}",
-                    weight='bold')  # end
+                    weight='bold', fontsize=ann_fontsize)  # end
             mx_idx = np.where(hist_arr[0] == hist_arr[0].max())[0][0]
             ax.text(hist_arr[1][mx_idx], hist_arr[0][mx_idx] + hist_arr[0][mx_idx] * shift, f"{hist_arr[0][mx_idx]:.0f}",
-                    weight='bold')  # mx
+                    weight='bold', fontsize=ann_fontsize)  # mx
 
             for i in range(0, bins - 1, bins // denum):
-                ax.text(hist_arr[1][i], hist_arr[0][i] + hist_arr[0][i] * shift, f"{hist_arr[0][i]:.0f}", weight='bold')
+                ax.text(hist_arr[1][i], hist_arr[0][i] + hist_arr[0][i] * shift, f"{hist_arr[0][i]:.0f}", 
+                        weight='bold', fontsize=ann_fontsize)
 
         if return_details:
             return hist_txt, hist_arr
@@ -392,6 +409,29 @@ class DataManager:
 
                 continue
             # print("kwargs -->", kwargs)
-            self.plt_hist(column_name, ax=ax, 
-                          titles={'xlabel': None, 'ylabel': None, 'title': column_name},
-                          **kwargs)
+            self.plt_hist(column_name, ax=ax, **kwargs)
+
+    # ===============================  Helpers area ==============================================
+    @staticmethod
+    def helpers_query_df(df, series_name=None, merge_condition='and', filters=None, return_query_str=True):
+        """
+        filters DF. If series_name, this series will be returned after filtering
+        """
+        query = ''
+        for filt in filters:
+            query += f'{filt} {merge_condition} '
+
+        query = query.rsplit(' ', 2)[0]
+        return (df.query(query)[series_name], query) if series_name is not None else (df.query(query), query)
+    # ------------------------------------------------------------------------------------------------------------------#
+    @staticmethod
+    def helpers_set_dict_default(dictionar, keys, return_dict=False):
+        """
+        Sets None for keys from keys list in a dict
+        as dict is passed by ref, no real need for return
+        """
+        for key in keys:
+            dictionar[key] = dictionar[key] if key in dictionar else None
+        
+        if return_dict:
+            return dictionar
