@@ -150,29 +150,30 @@ class DataManager:
 
     # ===============================  Plotting area ==============================================
     
-    def plt_plot_timeseries(self, series_name: str, **kwargs):
+    def plt_plot_ts(self, series_name: str, **kwargs):
         """
-        Plots a timeseries plot
+        Plots a timeseries plot for one feature
 
-        :param series: Series of DF
-        :param titles: titles={'xlabel':xlabel, 'ylabel':ylabel, 'title':title, 'title_loc':title_loc}
-                title_loc --> location of the title
-        :param color: line color "#8591e0"
-        :param ls: line style "-'
-        :param fig_size: default figs_size=(10, 4)
-        :param rc: rc dict for sns styling the chart def: {"grid.linewidth": 1, }
-        :param ax: axes to plot timeseries.
-        :param filters: array of filters. Exmpl: ["salary=>2.5e4", "salary <= 1e5"]
+        :param series_name: series_name of DF
+        :param kwargs: all other optional params:        
+            >> :param titles: titles={'xlabel':xlabel, 'ylabel':ylabel, 'title':title, 'title_loc':title_loc}
+                    >> title_loc --> location of the title
+            >> :param color: line color "#8591e0"
+            >> :param ls: line style "-'
+            >> :param figsize: default figs_size=(10, 4)
+            >> :param rc: rc dict for sns styling the chart def: {"grid.linewidth": 1, }
+            >> :param ax: axes to plot timeseries.
+            >> :param filters: array of filters. Exmpl: ["salary=>2.5e4", "salary <= 1e5"]
         
         :return:
         """
         # get defaults from **kwargs
-        titles = kwargs.pop('titles') if 'titles' in kwargs else dict(loc='center', xy=[1, 1.1], title_loc='center')
+        titles = kwargs.pop('titles') if 'titles' in kwargs else dict(xy=[1, 1.1], title_loc='center')
         color = kwargs.pop('color') if 'color' in kwargs else "#8591e0"
         ls = kwargs.pop('ls') if 'ls' in kwargs else "-"
-        fig_size = kwargs.pop('fig_size') if 'fig_size' in kwargs else (10, 4)
+        figsize = kwargs.pop('figsize') if 'figsize' in kwargs else (10, 4)
         rc = kwargs.pop('rc') if 'rc' in kwargs else {"grid.linewidth": 1, }
-        ax = kwargs.pop('ax') if 'ax' in kwargs else plt.subplots(figsize=fig_size)[1]
+        ax = kwargs.pop('ax') if 'ax' in kwargs else plt.subplots(figsize=figsize)[1]
         filters = kwargs.pop('filters') if 'filters' in kwargs else None
         annotate = kwargs.pop('annotate') if 'annotate' in kwargs else None
         
@@ -180,7 +181,8 @@ class DataManager:
         
         # prepaing Series
         series = self.data_btc[series_name]
-
+        titles["title"] = f"Time Series for [{series_name}]" if titles["title"] is None else titles["title"]
+        
         if filters is not None:
             #query = ''
             #for filt in filters:
@@ -188,7 +190,7 @@ class DataManager:
 
             #query = query.rsplit(' ', 2)[0]
             #series = self.data_btc.query(query)[series_name]
-            series, query_str = self.helpers_query_df(self.data_btc, series_name, filters=filters)
+            series, query_str = self.helpers_query_df(self.data_btc, series_name, filters=filters)            
             titles["title"] = str(titles["title"]) + f"\nfilters: {query_str}"
 
         # plt
@@ -203,8 +205,18 @@ class DataManager:
 
         # annotate
         if annotate:
-            annotations = [(series.idxmin(), series.min(), 'min'), (series.idxmax(), series.max(), 'max'),
-                           (series.index[0], series[0], 'last')]
+            last_point_ann = 'last'
+            max_ann = 'max'
+            min_ann = 'min'
+            if series[0] == series.min():           
+                last_point_ann = 'last, min'
+                min_ann = ''
+            if series[0] == series.max():           
+                last_point_ann = 'last, max'
+                max_ann = ''
+                
+            annotations = [(series.idxmin(), series.min(), min_ann), (series.idxmax(), series.max(), max_ann),
+                           (series.index[0], series[0], last_point_ann)]
 
             for ann in annotations:
                 ax.annotate(f'{ann[1]:,} ({ann[2]})', (mdates.date2num(ann[0]), ann[1]))
@@ -221,54 +233,41 @@ class DataManager:
         gc.collect()
 
     # ------------------------------------------------------------------------------------------------------------------#
-    def _plt_combine_features(self, features_to_plt, features_skip):
-        """
-        combines features on the base of include~ exclude~ features lists
-        >> Protected -- if inheritance
-        """
-        feat_to_plt = []
-
-        if features_to_plt is not None:
-            feat_to_plt = [f for f in self.data_btc.columns if f in features_to_plt]
-
-        if features_skip is not None:
-            feat_to_plt = [f for f in self.data_btc.columns if f not in features_skip]
-
-        if len(feat_to_plt) == 0:
-            feat_to_plt = self.data_btc.columns
-        return feat_to_plt
-    
-    def plt_compare_features_ts(self, features_to_plt=None, features_skip=None, fig_size=(25, 20),
-                            fig_title="Previewing BTC TimeSeries data", subplt_title_loc='right', xy=None, **kwargs):
+    def plt_compare_features_ts(self, features_to_plt=None, features_skip=None, **kwargs):
         """
         plots specified features as timeseries 
 
         :param features_to_plt: if some features are to be plot
         :param features_skip: if some features are to be skipped
-        :param fig_size: figsize of the combined charts -- tuple
-        :param fig_title: title of the combined figure
-        :param subplt_title_loc: position for placing title on subplots
-        :param xy: shift of the title of the subplot (need to be set not to overlap with axes ticks)
+        :param kwargs: every kwarg that is applicable for self.plt_plot_ts plus:        
+            >> :param tot_figsize: tot_figsize of the combined charts -- tuple
+            >> :param titles['fig_title']: title of the combined figure
+            >> !!! param figsize for nested charts is redundant. Not to send with kwargs
+
         :return: None
         """
-        feat_to_plt = self._plt_combine_features(features_to_plt, features_skip)
-
-        if xy is None:
-            xy = [1, 1]
-
-        # print(">>>", feat_to_plt)
+        
+        titles = kwargs.pop('titles') if 'titles' in kwargs else dict(xy=[1, 1.1], 
+                                                                      title_loc='right',
+                                                                      fig_title = "Previewing BTC TimeSeries data")
+        color = kwargs.pop('color') if 'color' in kwargs else "#8591e0"
+        tot_figsize = kwargs.pop('tot_figsize') if 'tot_figsize' in kwargs else (25, 20)
+        
+        # setting defaults, if user didn't pass values
+        self.helpers_set_dict_default(titles, dict(fig_title="Previewing BTC TimeSeries data",
+                                                   xy=titles['xy'] if 'xy' in titles else [1, 1.1]))
+        
+        feat_to_plt = self.helpers_combine_features(self.data_btc, features_to_plt, features_skip)
 
         fig, ax = plt.subplots(len(feat_to_plt), 1)
-        fig.suptitle(fig_title, y=.9, fontsize=17, fontweight='bold')
-
-        # print(fig==None, ax == None)
+        fig.suptitle(titles['fig_title'], x=titles['xy_suptitle'][0], y=titles['xy_suptitle'][1], fontsize=18, fontweight='bold')
 
         for i, feature in enumerate(feat_to_plt):
-            self.plt_plot_timeseries(feature, fig_size=(17, 5),
-                                     titles=dict(title=feature, title_loc=subplt_title_loc, xy=xy),
-                                     ax=ax[i], color="#8591e0", **kwargs)
+            titles['title'] = feature
+            self.plt_plot_ts(feature, titles=titles,
+                                      ax=ax[i], color=color, **kwargs)
 
-        fig.set_size_inches(fig_size)
+        fig.set_size_inches(tot_figsize)
 
     # ------------------------------------------------------------------------------------------------------------------#
     def plt_hist(self, series_name, annotate=True, return_details=False, **kwargs):
@@ -381,7 +380,7 @@ class DataManager:
         :return:
         """
         
-        feat_to_plt = self._plt_combine_features(features_to_plt, features_skip)
+        feat_to_plt = self.helpers_combine_features(self.data_btc, features_to_plt, features_skip)
         #print(feat_to_plt)
         
         data = self.data_btc[feat_to_plt] # leaving only selected features
@@ -427,11 +426,45 @@ class DataManager:
     @staticmethod
     def helpers_set_dict_default(dictionar, keys, return_dict=False):
         """
-        Sets None for keys from keys list in a dict
-        as dict is passed by ref, no real need for return
-        """
-        for key in keys:
-            dictionar[key] = dictionar[key] if key in dictionar else None
+        Sets values for keys in dict.
         
+        :param dictionar: dictionary that has to be inspected for presence of keys
+        :param keys:
+            >> list: keys from list that are not found in dictionar, will be added with None value
+            >> dict: keys from keys dict that are not found in dictionar, will be added with keys[key] value
+                
+        
+        returns: None or dict 
+        as dict is passed by ref, no real need for return
+        
+        """
+        if isinstance(keys, list):
+            for key in keys:
+                dictionar[key] = dictionar[key] if key in dictionar else None
+        
+        if isinstance(keys, dict):
+            for key, val in keys.items():
+                dictionar[key] = dictionar[key] if key in dictionar else val
+            
         if return_dict:
             return dictionar
+    
+    # ------------------------------------------------------------------------------------------------------------------#
+    @staticmethod
+    def helpers_combine_features(df, features_to_plt, features_skip):
+        """
+        combines features on the base of include~ exclude~ features lists
+        >> Protected -- if inheritance
+        """
+        feat_to_plt = []
+
+        if features_to_plt is not None:
+            feat_to_plt = [f for f in df if f in features_to_plt]
+
+        if features_skip is not None:
+            feat_to_plt = [f for f in df if f not in features_skip]
+
+        if len(feat_to_plt) == 0:
+            feat_to_plt = df.columns
+        
+        return feat_to_plt
