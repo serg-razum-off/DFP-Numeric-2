@@ -100,7 +100,7 @@ class DataManager:
             curr_file.rename(columns={"Value": file_names[i].split('-')[-1].split(".")[0]},
                              inplace=True)
 
-            self.data_btc = self.data_btc.merge(curr_file, right_index=True, left_index=True)
+            self.data_btc = self.data_btc.merge(curr_file, right_index=True, left_index=True, how='left') # leftjoin
         # gc
         curr_file = None
         gc.collect()
@@ -164,6 +164,7 @@ class DataManager:
             >> :param rc: rc dict for sns styling the chart def: {"grid.linewidth": 1, }
             >> :param ax: axes to plot timeseries.
             >> :param filters: array of filters. Exmpl: ["salary=>2.5e4", "salary <= 1e5"]
+            >> :param annotate: if to show min max last on the chart
         
         :return:
         """
@@ -184,14 +185,9 @@ class DataManager:
         titles["title"] = f"Time Series for [{series_name}]" if titles["title"] is None else titles["title"]
         
         if filters is not None:
-            #query = ''
-            #for filt in filters:
-            #    query += f'{filt} {merge_condition} '
-
-            #query = query.rsplit(' ', 2)[0]
-            #series = self.data_btc.query(query)[series_name]
             series, query_str = self.helpers_query_df(self.data_btc, series_name, filters=filters)            
-            titles["title"] = str(titles["title"]) + f"\nfilters: {query_str}"
+            filters_repr = self.helpers_filters_repr(query_str)
+            titles["title"] = str(titles["title"]) + f"\nfilters: {filters_repr}"
 
         # plt
         ax.plot(series, color=color, ls=ls)
@@ -215,7 +211,8 @@ class DataManager:
                 last_point_ann = 'last, max'
                 max_ann = ''
                 
-            annotations = [(series.idxmin(), series.min(), min_ann), (series.idxmax(), series.max(), max_ann),
+            annotations = [(series.idxmin(), series.min(), min_ann), 
+                           (series.idxmax(), series.max(), max_ann),
                            (series.index[0], series[0], last_point_ann)]
 
             for ann in annotations:
@@ -233,7 +230,7 @@ class DataManager:
         gc.collect()
 
     # ------------------------------------------------------------------------------------------------------------------#
-    def plt_compare_features_ts(self, features_to_plt=None, features_skip=None, **kwargs):
+    def plt_plot_multiple_ts(self, features_to_plt=None, features_skip=None, **kwargs):
         """
         plots specified features as timeseries 
 
@@ -247,25 +244,27 @@ class DataManager:
         :return: None
         """
         
-        titles = kwargs.pop('titles') if 'titles' in kwargs else dict(xy=[1, 1.1], 
-                                                                      title_loc='right',
-                                                                      fig_title = "Previewing BTC TimeSeries data")
+        titles = kwargs.pop('titles') if 'titles' in kwargs else dict()
         color = kwargs.pop('color') if 'color' in kwargs else "#8591e0"
         tot_figsize = kwargs.pop('tot_figsize') if 'tot_figsize' in kwargs else (25, 20)
         
         # setting defaults, if user didn't pass values
-        self.helpers_set_dict_default(titles, dict(fig_title="Previewing BTC TimeSeries data",
-                                                   xy=titles['xy'] if 'xy' in titles else [1, 1.1]))
+        self.helpers_set_dict_default(titles, dict(fig_title="Previewing BTC TimeSeries data", 
+                                                   title_loc='right',
+                                                   xy=titles['xy'] if 'xy' in titles else [1, 1.1],
+                                                   xy_suptitle = titles['xy_suptitle'] if 'xy_suptitle' in titles else [0.5,.95]
+                                                  ))
         
         feat_to_plt = self.helpers_combine_features(self.data_btc, features_to_plt, features_skip)
 
-        fig, ax = plt.subplots(len(feat_to_plt), 1)
+        fig, ax = plt.subplots(len(feat_to_plt), 1) 
         fig.suptitle(titles['fig_title'], x=titles['xy_suptitle'][0], y=titles['xy_suptitle'][1], fontsize=18, fontweight='bold')
 
         for i, feature in enumerate(feat_to_plt):
-            titles['title'] = feature
+            titles['title'] = feature 
+            curr_ax = ax[i] if len(feat_to_plt) > 1 else ax
             self.plt_plot_ts(feature, titles=titles,
-                                      ax=ax[i], color=color, **kwargs)
+                                      ax=curr_ax, color=color, **kwargs)
 
         fig.set_size_inches(tot_figsize)
 
@@ -285,7 +284,7 @@ class DataManager:
             >> :param x",y: will be aplied to position of the title
             >> :param bins": num of bins
             >> :param ann_fontsize": fontsize of the bins annotations
-            >> :param rng: range to limit x
+            >> :param filters: array of filters. Exmpl: ["salary=>2.5e4", "salary <= 1e5"]
             >> :param bins: int or list as per bins that have to be shown in hist. Default is Series.unique().__len__()
             >> :param titles: if None, dict will be applied: {'xlabel': None, 'ylabel': None, 'title': None}
             >> :param ax: if None, will be initialized to ax = plt.subplots(figsize=figsize)[1]
@@ -299,7 +298,7 @@ class DataManager:
         
         # getting defaults from kwargs
         ax = kwargs.pop('ax') if 'ax' in kwargs else None
-        rng = kwargs.pop('rng') if 'rng' in kwargs else None
+        filters = kwargs.pop('filters') if 'filters' in kwargs else None
         bins = kwargs.pop('bins') if 'bins' in kwargs else 15
         color = kwargs.pop('color') if 'color' in kwargs else '#537ddf'
         figsize = kwargs.pop('figsize') if 'figsize' in kwargs else (10, 4)        
@@ -307,11 +306,11 @@ class DataManager:
 
         self.helpers_set_dict_default(titles, ['xlabel', 'ylabel'])
         
+        if filters is not None:
+            series, query_str = self.helpers_query_df(self.data_btc, series_name, filters=filters)            
+            filters_repr = self.helpers_filters_repr(query_str)
+            titles["title"] = str(titles["title"]) + f"\nfilters: {filters_repr}"
         
-        if rng is None:
-            rng = [series.min(), series.max()]
-            rng = None if (type(rng[0]) != int) else rng  # SR: checking if categories. cannot set rng for them
-
         if ax is None:
             ax = plt.subplots(figsize=figsize)[1]
             fontsize = 12
@@ -328,7 +327,7 @@ class DataManager:
         x_title = kwargs.pop('x') if 'x' in kwargs else .5 
         y_title = kwargs.pop('y') if 'y' in kwargs else 1 
         
-        hist_arr = ax.hist(series, range=rng, color=color, bins=bins, **kwargs)
+        hist_arr = ax.hist(series, color=color, bins=bins, **kwargs)
         ax.set_xlabel(titles['xlabel'])
 
         ax.set_ylabel(titles['ylabel'])
@@ -468,3 +467,10 @@ class DataManager:
             feat_to_plt = df.columns
         
         return feat_to_plt
+    
+    @staticmethod
+    def helpers_filters_repr(query: str):
+        """
+        takes query string and splits it to different lines with "and" separator
+        """
+        return '\n'.join(query.split("and"))
