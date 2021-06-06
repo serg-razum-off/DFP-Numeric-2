@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import seaborn as sns
 import glob
+import string, random
 
-
+# //////////////////////////////////////  == Data Manager  == //////////////////////////////////////////
 class DataManager:
     """
     SR: reads the files related to trades of bitcoin and preprocesses them. 
@@ -74,6 +75,60 @@ class DataManager:
         del btc_exch_raw
         gc.collect()
 
+    # ------------------------------------------------------------------------------------------------------------------#
+    def feature_add(self, fn, fn_prop:dict, return_feature=False):
+        """
+        Adds a feature to self.data_btc
+        
+        :param new_feature_name: name of the new feature. If 
+        :param fn: function to be applied for derriving this feature
+        :param fn_prop: 
+            >> :param base_feat_name: obligatory param -- column to which function has to be applied
+            >> :param fillna_meth: method with which nulls values in new column have to be filled. 
+                    Default is 'bfill' as in TimeSeries it fills from oldest to newest
+            >> :param isnumpy_fn: is Numpy function, default=False
+        
+        returns: feature if return_feature, else True if feature was added
+        """
+        # settng fn_prop defaults
+        if 'base_feat_name' not in fn_prop:
+            raise ValueError('base_feat_name is obligatiry parametr. Try again, passing it...')        
+        if 'fillna_meth' not in fn_prop:
+            fn_prop['fillna_meth'] = 'bfill'
+        if 'isnumpy_fn' not in fn_prop:
+            fn_prop['isnumpy_fn'] = False        
+        if 'new_feature_name' not in fn_prop:
+            rand_str = ''.join(random.choice(string.ascii_letters) for i in range(5))
+            fn_prop['new_feature_name'] = f'{fn_prop["base_feat_name"]}_{rand_str}'                     
+        
+        if fn_prop['isnumpy_fn']:
+            new_feat = fn(self.data_btc[f"{fn_prop['base_feat_name']}"].values)
+            new_feat = pd.Series(new_feat).fillna(method=fn_prop['fillna_meth'])
+        else:
+            base_feat = fn_prop['base_feat_name']
+            new_feat = fn(self.data_btc[f"{base_feat}"]).fillna(method=fn_prop['fillna_meth'])
+            
+                             
+        if return_feature:
+            return new_feat
+        
+        
+        self.data_btc[fn_prop['new_feature_name']] = new_feat        
+        return True
+    
+    # ------------------------------------------------------------------------------------------------------------------#
+    def features_drop(self, feature_names_list: list):
+        """
+        Drops specified features
+        """
+        feature_names_list = [f for f in feature_names_list if f in self.data_btc.columns]
+        
+        if len(feature_names_list) > 0:
+            self.data_btc.drop(columns=feature_names_list, inplace=True)
+            
+        return True
+        
+    # ------------------------------------------------------------------------------------------------------------------#
     def _self_data_btc_Add_other_metrics(self, dir_path: str):
         """
         Gets CSV files (columns: date, value), merges them, adds to Exchange Rate
@@ -91,9 +146,9 @@ class DataManager:
             curr_file = pd.read_csv(file_path)
             curr_file['Date'] = pd.to_datetime(curr_file['Date'])
             curr_file['Value'] = curr_file['Value'].astype(float)
-            if 'TOTBC' in file_path:
-                curr_file['BTC_MINED'] = -curr_file['Value'].diff()
-                curr_file['BTC_MINED'].fillna(method='bfill', inplace=True)  # filling last day (Nan) as one before
+            # if 'TOTBC' in file_path:
+            #     curr_file['BTC_MINED'] = -curr_file['Value'].diff()
+            #     curr_file['BTC_MINED'].fillna(method='bfill', inplace=True)  # filling last day (Nan) as one before
 
             curr_file.set_index('Date', inplace=True)
             # rename Value col to the core part of filename
@@ -122,32 +177,6 @@ class DataManager:
             print("!!! add to files_properties descr of files with these columns: ")
             print(missed_files)
 
-    # ===============================  Norm, Saving results =======================================
-    def save_combined_csv(self, path=None, datasets=None):
-        """
-        Saves prepared file to folder as a source for NN
-        
-        :param path: path to save csv file(s)
-        :param datasets: list of names of the datasets to save. 
-            >> Allowed values: ["data_btc", "data_btc_normalized"]. 
-            >> Default: ["data_btc_normalized"]
-        """
-        if path is None:
-            path = "../data/ready_to_train"
-            if not os.path.exists(path):
-                path = "."
-
-        if datasets is None:
-            datasets = ["data_btc_normalized"]
-
-        if "data_btc" in datasets:
-            self.data_btc.to_csv(os.path.join(path, "data_btc_combined.csv"))
-            print(f">> self.data_btc --> saved to {path}")
-
-        if "data_btc_normalized" in datasets:
-            self.data_btc_normalized.to_csv(os.path.join(path, "data_btc_combined_nirmalized.csv"))
-            print(f">> self.data_btc_normalized --> saved to {path}")
-
     # ===============================  Plotting area ==============================================
     
     def plt_plot_ts(self, series_name: str, **kwargs):
@@ -158,6 +187,7 @@ class DataManager:
         :param kwargs: all other optional params:        
             >> :param titles: titles={'xlabel':xlabel, 'ylabel':ylabel, 'title':title, 'title_loc':title_loc}
                     >> title_loc --> location of the title
+                    >> xy --> location of the title in [x,y] form. Overrides title_loc param
             >> :param color: line color "#8591e0"
             >> :param ls: line style "-'
             >> :param figsize: default figs_size=(10, 4)
@@ -193,9 +223,15 @@ class DataManager:
         ax.plot(series, color=color, ls=ls)
         ax.set_xlabel(titles['xlabel'])
         ax.set_ylabel(titles['ylabel'])
-        ax.set_title(titles['title'],
-                     fontweight="bold", fontsize=titles['fontsize'], loc=titles['title_loc'],
-                     x=titles['xy'][0], y=titles['xy'][1])
+        
+#         print('titles[xy] >>>> ', titles['xy'])
+        if titles['xy'] is None:
+            ax.set_title(titles['title'],
+                         fontweight="bold", fontsize=titles['fontsize'], loc=titles['title_loc'])
+        else:
+            ax.set_title(titles['title'],
+                         fontweight="bold", fontsize=titles['fontsize'], x=titles['xy'][0], y=titles['xy'][1])
+            
         ax.spines["right"].set_visible(False)
         ax.spines["top"].set_visible(False);
 
@@ -238,8 +274,11 @@ class DataManager:
         :param features_skip: if some features are to be skipped
         :param kwargs: every kwarg that is applicable for self.plt_plot_ts plus:        
             >> :param tot_figsize: tot_figsize of the combined charts -- tuple
-            >> :param titles['fig_title']: title of the combined figure
-            >> !!! param figsize for nested charts is redundant. Not to send with kwargs
+            >> :param titles: dict of properties for plot
+                >> :param titles['fig_title']: title of the combined figure
+                >> !!! param figsize for nested charts is redundant. Not to send with kwargs
+                >> :param titles['xy']: position of titles of nested plots
+                >> :param titles['xy_suptitle']: position of title of the gathered plot            
 
         :return: None
         """
@@ -409,6 +448,21 @@ class DataManager:
             # print("kwargs -->", kwargs)
             self.plt_hist(column_name, ax=ax, **kwargs)
 
+    # ===============================  Saving results =======================================
+    def save_combined_csv(self, path=None):
+        """
+        Saves prepared file to folder as a source for NN
+        
+        :param path: path to save csv file(s)
+        """
+        if path is None:
+            path = "../data/ready_to_train"
+            if not os.path.exists(path):
+                path = "."
+
+        self.data_btc.to_csv(os.path.join(path, "data_btc_combined.csv"))
+        print(f">> self.data_btc --> saved to {path}")
+        
     # ===============================  Helpers area ==============================================
     @staticmethod
     def helpers_query_df(df, series_name=None, merge_condition='and', filters=None, return_query_str=True):
@@ -458,10 +512,10 @@ class DataManager:
         feat_to_plt = []
 
         if features_to_plt is not None:
-            feat_to_plt = [f for f in df if f in features_to_plt]
+            feat_to_plt = features_to_plt
 
         if features_skip is not None:
-            feat_to_plt = [f for f in df if f not in features_skip]
+            feat_to_plt = [f for f in df.columns if f not in features_skip]
 
         if len(feat_to_plt) == 0:
             feat_to_plt = df.columns
@@ -474,3 +528,20 @@ class DataManager:
         takes query string and splits it to different lines with "and" separator
         """
         return '\n'.join(query.split("and"))
+
+    
+# ///////////////////////////////////////  == Data Manager Normalized == ///////////////////////////////////////////////
+class DataManagerNormalized(DataManager):
+    """
+    Inherits all behaviour from DataManager. Separates form DM by normalized data. Way of normalization is defined in Init
+    """
+    # ===============================  Init  ====================================================
+    def __init__(self, data, normalization_function):
+        """
+        Receives data from DataManager object (after all inspections and other work done to data) and normalizes it
+        
+        :param data: data
+        :param normalization_function: normalization function
+        """
+        pass
+    pass
