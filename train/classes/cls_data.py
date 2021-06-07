@@ -193,7 +193,7 @@ class DataManager:
         Normalizes data from self.data_btc to self.data_btc_normalized
         
         :param norm_dict: 
-            key: synonlym of lambda function
+            key: synonym of lambda function
             value: tuple: (lambda function itself, list of features to apply this function)
             >>  Notes:
             >>  when using NumPy functions make sure to pass X.Values in your lambda function
@@ -489,7 +489,7 @@ class DataManager:
         for i, column_name in enumerate(data.columns):
             
             chart_row = i // ncols
-            chart_col = i - chart_row * 4 if whole_p > 1 else i
+            chart_col = i - chart_row * ncols if whole_p > 1 else i
             ax = axes[chart_row][chart_col] if whole_p > 1 else axes[chart_col]
             # print("chart_row, chart_col, ax -->", chart_row, chart_col, ax)
             
