@@ -7,6 +7,7 @@ import matplotlib.dates as mdates
 import seaborn as sns
 import glob
 import string, random
+from collections import Counter
 
 # //////////////////////////////////////  == Data Manager  == //////////////////////////////////////////
 class DataManager:
@@ -27,18 +28,21 @@ class DataManager:
         :param btc_other_filenames: list of filenames that store additional data
                                     All have to be in same format: dateCol, ValCol
         """
+        
         self.data_btc = None
-        self.data_btc_normalized = None
         self.data_files = [f for f in filter(os.path.isfile, os.listdir(dir_path))]
         self.data_files_prop = pd.read_csv(os.path.join(dir_path, "files_properties.csv"))
         self._btc_exch_rates_filename = btc_exch_rates_filename
+        
         self._set_self_data_btc(dir_path, btc_exch_rates_filename)
-        self._self_data_btc_Add_other_metrics(dir_path=dir_path)
+        self._self_data_btc_Add_other_metrics(dir_path=dir_path)        
+        self._self_data_btc_normalized_init()
 
-        # ===============================  Getting data from csv ===================================
-
+    # ===============================  Getting data from csv ===================================
     def _set_self_data_btc(self, dir_path, file_name):
-        # reading exch_rate csv        
+        """
+        reading exch_rate csv        
+        """
         btc_exch_raw = (
             pd.read_csv(os.path.join(dir_path, file_name))
                 .rename(columns={"Vol.": "Vol", "Change %": "Growth"}, inplace=False)
@@ -74,60 +78,7 @@ class DataManager:
         self.data_btc = btc_exch_raw.set_index("Date")
         del btc_exch_raw
         gc.collect()
-
-    # ------------------------------------------------------------------------------------------------------------------#
-    def feature_add(self, fn, fn_prop:dict, return_feature=False):
-        """
-        Adds a feature to self.data_btc
-        
-        :param new_feature_name: name of the new feature. If 
-        :param fn: function to be applied for derriving this feature
-        :param fn_prop: 
-            >> :param base_feat_name: obligatory param -- column to which function has to be applied
-            >> :param fillna_meth: method with which nulls values in new column have to be filled. 
-                    Default is 'bfill' as in TimeSeries it fills from oldest to newest
-            >> :param isnumpy_fn: is Numpy function, default=False
-        
-        returns: feature if return_feature, else True if feature was added
-        """
-        # settng fn_prop defaults
-        if 'base_feat_name' not in fn_prop:
-            raise ValueError('base_feat_name is obligatiry parametr. Try again, passing it...')        
-        if 'fillna_meth' not in fn_prop:
-            fn_prop['fillna_meth'] = 'bfill'
-        if 'isnumpy_fn' not in fn_prop:
-            fn_prop['isnumpy_fn'] = False        
-        if 'new_feature_name' not in fn_prop:
-            rand_str = ''.join(random.choice(string.ascii_letters) for i in range(5))
-            fn_prop['new_feature_name'] = f'{fn_prop["base_feat_name"]}_{rand_str}'                     
-        
-        if fn_prop['isnumpy_fn']:
-            new_feat = fn(self.data_btc[f"{fn_prop['base_feat_name']}"].values)
-            new_feat = pd.Series(new_feat).fillna(method=fn_prop['fillna_meth'])
-        else:
-            base_feat = fn_prop['base_feat_name']
-            new_feat = fn(self.data_btc[f"{base_feat}"]).fillna(method=fn_prop['fillna_meth'])
-            
-                             
-        if return_feature:
-            return new_feat
-        
-        
-        self.data_btc[fn_prop['new_feature_name']] = new_feat        
-        return True
     
-    # ------------------------------------------------------------------------------------------------------------------#
-    def features_drop(self, feature_names_list: list):
-        """
-        Drops specified features
-        """
-        feature_names_list = [f for f in feature_names_list if f in self.data_btc.columns]
-        
-        if len(feature_names_list) > 0:
-            self.data_btc.drop(columns=feature_names_list, inplace=True)
-            
-        return True
-        
     # ------------------------------------------------------------------------------------------------------------------#
     def _self_data_btc_Add_other_metrics(self, dir_path: str):
         """
@@ -177,6 +128,110 @@ class DataManager:
             print("!!! add to files_properties descr of files with these columns: ")
             print(missed_files)
 
+    # ------------------------------------------------------------------------------------------------------------------#
+    def _self_data_btc_normalized_init(self):
+        """
+        inits self.data_btc_normalized to new DF with one column [Price] from self.data_btc
+        """
+        self.data_btc_normalized = pd.DataFrame(self.data_btc['Price'].copy())
+    # ------------------------------------------------------------------------------------------------------------------#
+    def feature_calculate(self, fn, fn_prop:dict, return_feature=False):
+        """
+        Adds a feature to self.data_btc
+            >>  when using NumPy functions make sure to pass X.Values in your lambda function
+                    Example: fn=lambda X: np.ma.log(X.values).filled(0)
+            >>  when using pd.Series functions passign X is enough
+                    Example: fn=lambda X: -X.diff()
+        
+        :param new_feature_name: name of the new feature. If 
+        :param fn: function to be applied for derriving this feature
+        :param fn_prop: 
+            >> :param base_feat_name: obligatory param -- column to which function has to be applied
+            >> :param new_feature_name: will be created automatically (base name + 4 rand letters)if was not passed
+            >> :param fillna_meth: method with which nulls values in new column have to be filled. 
+                    Default is 'bfill' as in TimeSeries it fills from oldest to newest            
+        
+        returns: feature if return_feature, else adds feature to dataframe (data_btc) and returns True
+        """
+        
+        # settng fn_prop defaults
+        if 'base_feat_name' not in fn_prop:
+            raise ValueError('base_feat_name is obligatiry parametr. Try again, passing it...')        
+        if 'fillna_meth' not in fn_prop:
+            fn_prop['fillna_meth'] = 'bfill'
+        if ('new_feature_name' not in fn_prop) and not return_feature:
+            rand_str = ''.join(random.choice(string.ascii_letters) for i in range(5))
+            fn_prop['new_feature_name'] = f'{fn_prop["base_feat_name"]}_{rand_str}'                     
+        
+        base_feat = fn_prop['base_feat_name']
+        new_feat = fn(self.data_btc[f"{base_feat}"])
+        new_feat = pd.Series(new_feat).fillna(method=fn_prop['fillna_meth'])
+                             
+        if return_feature:
+            new_feat.index = self.data_btc.index #setting correct index         
+            return new_feat
+        
+        self.data_btc[fn_prop['new_feature_name']] = new_feat        
+        return True
+           
+        
+    # ------------------------------------------------------------------------------------------------------------------#
+    def features_drop(self, feature_names_list: list):
+        """
+        Drops specified features
+        """
+        feature_names_list = [f for f in feature_names_list if f in self.data_btc.columns]
+        
+        if len(feature_names_list) > 0:
+            self.data_btc.drop(columns=feature_names_list, inplace=True)
+            
+        return True
+        
+    # ===============================  Normalizing & Saving results =======================================
+    def normalize_data(self, norm_dict, show_missing_features=False):
+        """
+        Normalizes data from self.data_btc to self.data_btc_normalized
+        
+        :param norm_dict: 
+            key: synonlym of lambda function
+            value: tuple: (lambda function itself, list of features to apply this function)
+            >>  Notes:
+            >>  when using NumPy functions make sure to pass X.Values in your lambda function
+                    Example: fn=lambda X: np.ma.log(X.values).filled(0)
+            >>  when using pd.Series functions passign X is enough
+                    Example: fn=lambda X: -X.diff()
+        """
+        
+        for map_fn_feat in norm_dict.values():
+            for feat in map_fn_feat[1]:
+                self.data_btc_normalized[feat] = pd.Series(
+                                                    self.feature_add(
+                                                        fn=map_fn_feat[0], 
+                                                        fn_prop=dict(base_feat_name=feat), 
+                                                        return_feature=True))
+        
+        
+        # check for the features that were not normalized
+        if show_missing_features:
+            feat_diff = np.setdiff1d(self.data_btc, self.data_btc_normalized)
+            if len(cols_diff) > 0:
+                print("Features from data_btc that are not in data_btc_normalized >>> ", feat_diff)
+
+    # ------------------------------------------------------------------------------------------------------------------#
+    def save_combined_csv(self, path=None):
+        """
+        Saves prepared file to folder as a source for NN
+        
+        :param path: path to save csv file(s)
+        """
+        if path is None:
+            path = "../data/ready_to_train"
+            if not os.path.exists(path):
+                path = "."
+
+        self.data_btc.to_csv(os.path.join(path, "data_btc_combined.csv"))
+        print(f">> self.data_btc --> saved to {path}")
+        
     # ===============================  Plotting area ==============================================
     
     def plt_plot_ts(self, series_name: str, **kwargs):
@@ -448,21 +503,6 @@ class DataManager:
             # print("kwargs -->", kwargs)
             self.plt_hist(column_name, ax=ax, **kwargs)
 
-    # ===============================  Saving results =======================================
-    def save_combined_csv(self, path=None):
-        """
-        Saves prepared file to folder as a source for NN
-        
-        :param path: path to save csv file(s)
-        """
-        if path is None:
-            path = "../data/ready_to_train"
-            if not os.path.exists(path):
-                path = "."
-
-        self.data_btc.to_csv(os.path.join(path, "data_btc_combined.csv"))
-        print(f">> self.data_btc --> saved to {path}")
-        
     # ===============================  Helpers area ==============================================
     @staticmethod
     def helpers_query_df(df, series_name=None, merge_condition='and', filters=None, return_query_str=True):
@@ -529,19 +569,3 @@ class DataManager:
         """
         return '\n'.join(query.split("and"))
 
-    
-# ///////////////////////////////////////  == Data Manager Normalized == ///////////////////////////////////////////////
-class DataManagerNormalized(DataManager):
-    """
-    Inherits all behaviour from DataManager. Separates form DM by normalized data. Way of normalization is defined in Init
-    """
-    # ===============================  Init  ====================================================
-    def __init__(self, data, normalization_function):
-        """
-        Receives data from DataManager object (after all inspections and other work done to data) and normalizes it
-        
-        :param data: data
-        :param normalization_function: normalization function
-        """
-        pass
-    pass
