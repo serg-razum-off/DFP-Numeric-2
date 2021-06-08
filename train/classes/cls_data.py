@@ -1,11 +1,11 @@
+import os, glob
+import gc
 import pandas as pd
 import numpy as np
-import os
-import gc
+from math import ceil
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import seaborn as sns
-import glob
 import string, random
 from collections import Counter
 
@@ -186,7 +186,26 @@ class DataManager:
             self.data_btc.drop(columns=feature_names_list, inplace=True)
             
         return True
-        
+    
+    def plt_transformations(feat_name, func_arr, **kwargs):
+        data_manager.plt_hist(feat_name,
+                              titles=dict(title=f"Previewing Skewness Transformations for [{feat_name}]"),
+                              **kwargs)
+
+        ncols = 3
+        whole_p = len(func_arr) // ncols
+        nrws = whole_p if len(func_arr) % ncols == 0 else whole_p + 1
+
+        fig, axes = plt.subplots(nrws, ncols, figsize=(6*ncols, 4*nrws))
+
+        for i, func in enumerate(func_arr):
+            chart_row = i // ncols
+            chart_col = i - chart_row * ncols if whole_p > 1 else i
+            ax = axes[chart_row][chart_col] if whole_p > 1 else axes[chart_col]
+            ax.set_title(func_arr[i][0])
+            data_manager.feature_calculate(fn=func_arr[i][1], 
+                                        fn_prop=dict(base_feat_name=feat_name, isnumpy_fn=True), 
+                                        return_feature=True).hist(ax=ax, y=.01, **kwargs)
     # ===============================  Normalizing & Saving results =======================================
     def normalize_data(self, norm_dict, show_missing_features=False):
         """
