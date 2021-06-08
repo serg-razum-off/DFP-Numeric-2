@@ -19,24 +19,29 @@ class DataManager:
     """
 
     # ===============================  Init  ====================================================
-    def __init__(self, dir_path: str, btc_exch_rates_filename: str):
+    def __init__(self, dir_path=None, btc_exch_rates_filename=None, init_data=True):
         """
         inits the DataManager class
 
         :param dir_path: path to csvs
         :param btc_exch_rates_filename: name of file with btc_quotes
         :param btc_other_filenames: list of filenames that store additional data
-                                    All have to be in same format: dateCol, ValCol
+            All have to be in same format: dateCol, ValCol
+        
+        :param init_data: if to init data_manager with reading from folders. 
+            If not -- data_btc has to be assigned manually
         """
         
         self.data_btc = None
-        self.data_files = [f for f in filter(os.path.isfile, os.listdir(dir_path))]
-        self.data_files_prop = pd.read_csv(os.path.join(dir_path, "files_properties.csv"))
-        self._btc_exch_rates_filename = btc_exch_rates_filename
         
-        self._set_self_data_btc(dir_path, btc_exch_rates_filename)
-        self._self_data_btc_Add_other_metrics(dir_path=dir_path)        
-        self._self_data_btc_normalized_init()
+        if init_data:
+            self.data_files = [f for f in filter(os.path.isfile, os.listdir(dir_path))]
+            self.data_files_prop = pd.read_csv(os.path.join(dir_path, "files_properties.csv"))
+            self._btc_exch_rates_filename = btc_exch_rates_filename
+
+            self._set_self_data_btc(dir_path, btc_exch_rates_filename)
+            self._self_data_btc_Add_other_metrics(dir_path=dir_path)        
+            self._self_data_btc_normalized_init()
 
     # ===============================  Getting data from csv ===================================
     def _set_self_data_btc(self, dir_path, file_name):
@@ -77,6 +82,7 @@ class DataManager:
 
         self.data_btc = btc_exch_raw.set_index("Date")
         del btc_exch_raw
+        
         gc.collect()
     
     # ------------------------------------------------------------------------------------------------------------------#
@@ -127,7 +133,9 @@ class DataManager:
         if len(missed_files) > 0:
             print("!!! add to files_properties descr of files with these columns: ")
             print(missed_files)
-
+        
+        gc.collect()
+        
     # ------------------------------------------------------------------------------------------------------------------#
     def _self_data_btc_normalized_init(self):
         """
@@ -149,7 +157,8 @@ class DataManager:
             >> :param base_feat_name: obligatory param -- column to which function has to be applied
             >> :param new_feature_name: will be created automatically (base name + 4 rand letters)if was not passed
             >> :param fillna_meth: method with which nulls values in new column have to be filled. 
-                    Default is 'bfill' as in TimeSeries it fills from oldest to newest            
+                    Default is 'bfill' as in TimeSeries it fills from oldest to newest
+            >> :param corr_to_pos: if to apply function to feature shifted to strictly positive ( >=1 (log))
         
         returns: feature if return_feature, else adds feature to dataframe (data_btc) and returns True
         """
@@ -159,21 +168,28 @@ class DataManager:
             raise ValueError('base_feat_name is obligatiry parametr. Try again, passing it...')        
         if 'fillna_meth' not in fn_prop:
             fn_prop['fillna_meth'] = 'bfill'
+        if 'corr_to_pos' not in fn_prop:
+            fn_prop['corr_to_pos'] = False
         if ('new_feature_name' not in fn_prop) and not return_feature:
             rand_str = ''.join(random.choice(string.ascii_letters) for i in range(5))
             fn_prop['new_feature_name'] = f'{fn_prop["base_feat_name"]}_{rand_str}'                     
         
         base_feat = fn_prop['base_feat_name']
-        new_feat = fn(self.data_btc[f"{base_feat}"])
+        base_series = (self.data_btc[f"{base_feat}"] 
+                           if not fn_prop['corr_to_pos'] 
+                           else self.data_btc[f"{base_feat}"] + abs(self.data_btc[f"{base_feat}"].min()) + 1) # 1 for logarithm
+        new_feat = fn(base_series)
         new_feat = pd.Series(new_feat).fillna(method=fn_prop['fillna_meth'])
                              
         if return_feature:
             new_feat.index = self.data_btc.index #setting correct index         
             return new_feat
         
-        self.data_btc[fn_prop['new_feature_name']] = new_feat        
-        return True
-           
+        self.data_btc[fn_prop['new_feature_name']] = new_feat
+        
+        base_series, new_feat = None, None
+        gc.collect()
+        return True          
         
     # ------------------------------------------------------------------------------------------------------------------#
     def features_drop(self, feature_names_list: list):
@@ -185,12 +201,28 @@ class DataManager:
         if len(feature_names_list) > 0:
             self.data_btc.drop(columns=feature_names_list, inplace=True)
             
+        gc.collect()
         return True
     
-    def plt_transformations(feat_name, func_arr, **kwargs):
-        data_manager.plt_hist(feat_name,
-                              titles=dict(title=f"Previewing Skewness Transformations for [{feat_name}]"),
-                              **kwargs)
+    
+    # ===============================  Normalizing & Saving results =======================================
+    def features_plt_transformations(self, feat_name, func_arr, corr_to_pos=False, **kwargs):
+        """
+        Previews list of transformations on specific feature (use for SKW)
+        :param feat_name: name of the base feature of self.data_btc
+        :param func_arr: arr of functions to be applied. Each elem -- tuple ('name', function):
+            >>> Example: func_arr = [('func_^2', lambda X: np.power(X.values, 2)),
+                                        ('func_^3', lambda X: np.power(X.values, 3)),
+                                        ('func_sqrt', lambda X: np.sqrt(X.values))]
+                        
+        """
+        seri = self.data_btc[feat_name]
+       
+        self.plt_hist(feat_name,  
+                      titles=dict(title=f"Previewing Skewness Transformations for [{feat_name}]\n" +
+                                          f">> negat: {seri[seri<0].shape[0]}\n " +
+                                          f">> zero counts {seri[seri==0].shape[0]}"),
+                      **kwargs)
 
         ncols = 3
         whole_p = len(func_arr) // ncols
@@ -203,11 +235,16 @@ class DataManager:
             chart_col = i - chart_row * ncols if whole_p > 1 else i
             ax = axes[chart_row][chart_col] if whole_p > 1 else axes[chart_col]
             ax.set_title(func_arr[i][0])
-            data_manager.feature_calculate(fn=func_arr[i][1], 
-                                        fn_prop=dict(base_feat_name=feat_name, isnumpy_fn=True), 
-                                        return_feature=True).hist(ax=ax, y=.01, **kwargs)
-    # ===============================  Normalizing & Saving results =======================================
-    def normalize_data(self, norm_dict, show_missing_features=False):
+            self.feature_calculate(fn=func_arr[i][1], 
+                                   fn_prop=dict(base_feat_name=feat_name, corr_to_pos=corr_to_pos), 
+                                        return_feature=True                                        
+                                  ).hist(ax=ax, y=.01, **kwargs)
+        
+        fig, axes, ax = None, None, None
+        gc.collect()
+    
+    # ------------------------------------------------------------------------------------------------------------------#
+    def feature_skw_correction(self, norm_dict, show_missing_features=False):
         """
         Normalizes data from self.data_btc to self.data_btc_normalized
         
@@ -224,10 +261,13 @@ class DataManager:
         for map_fn_feat in norm_dict.values():
             for feat in map_fn_feat[1]:
                 self.data_btc_normalized[feat] = pd.Series(
-                                                    self.feature_add(
-                                                        fn=map_fn_feat[0], 
-                                                        fn_prop=dict(base_feat_name=feat), 
-                                                        return_feature=True))
+                                                    self.feature_calculate(
+                                                            fn=map_fn_feat[0], 
+                                                            fn_prop=dict(
+                                                                base_feat_name=feat,
+                                                                corr_to_pos=True
+                                                            ), 
+                                                            return_feature=True))
         
         
         # check for the features that were not normalized
@@ -235,7 +275,9 @@ class DataManager:
             feat_diff = np.setdiff1d(self.data_btc, self.data_btc_normalized)
             if len(cols_diff) > 0:
                 print("Features from data_btc that are not in data_btc_normalized >>> ", feat_diff)
-
+        
+        gc.collect()
+        
     # ------------------------------------------------------------------------------------------------------------------#
     def save_combined_csv(self, path=None):
         """
@@ -337,6 +379,7 @@ class DataManager:
 
         # gc
         series = None
+        
         gc.collect()
 
     # ------------------------------------------------------------------------------------------------------------------#
