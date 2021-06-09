@@ -33,6 +33,10 @@ class DataManager:
         """
         
         self.data_btc = None
+        self.X_train = None
+        self.X_test = None
+        self.y_train = None
+        self.y_test = None
         
         if init_data:
             self.data_files = [f for f in filter(os.path.isfile, os.listdir(dir_path))]
@@ -137,12 +141,6 @@ class DataManager:
         gc.collect()
         
     # ------------------------------------------------------------------------------------------------------------------#
-    def _self_data_btc_normalized_init(self):
-        """
-        inits self.data_btc_normalized to new DF with one column [Price] from self.data_btc
-        """
-        self.data_btc_normalized = pd.DataFrame(self.data_btc['Price'].copy())
-    # ------------------------------------------------------------------------------------------------------------------#
     def feature_calculate(self, fn, fn_prop:dict, return_feature=False):
         """
         Adds a feature to self.data_btc
@@ -221,19 +219,24 @@ class DataManager:
         self.plt_hist(feat_name,  
                       titles=dict(title=f"Previewing Skewness Transformations for [{feat_name}]\n" +
                                           f">> negat: {seri[seri<0].shape[0]}\n " +
-                                          f">> zero counts {seri[seri==0].shape[0]}"),
-                      **kwargs)
+                                          f">> zero counts {seri[seri==0].shape[0]}"))
 
+  
         ncols = 3
-        whole_p = len(func_arr) // ncols
+        # SR [2021-06-09] corrected comparing to other grid_charts. Their behav has to be monitored more. This now works
+        whole_p = len(func_arr) // ncols #if (len(func_arr) % ncols) == 0 else len(func_arr) // ncols +1
         nrws = whole_p if len(func_arr) % ncols == 0 else whole_p + 1
-
         fig, axes = plt.subplots(nrws, ncols, figsize=(6*ncols, 4*nrws))
-
+#         print("len(func_arr), nrws, ncols, whole_p --> ", len(func_arr), nrws, ncols, whole_p)
+        
+        
         for i, func in enumerate(func_arr):
             chart_row = i // ncols
             chart_col = i - chart_row * ncols if whole_p > 1 else i
+#             print("chart_row, chart_col -->", chart_row, chart_col)
             ax = axes[chart_row][chart_col] if whole_p > 1 else axes[chart_col]
+#             print("ax, func_arr[i][0] -->", ax, func_arr[i][0])
+            
             ax.set_title(func_arr[i][0])
             self.feature_calculate(fn=func_arr[i][1], 
                                    fn_prop=dict(base_feat_name=feat_name, corr_to_pos=corr_to_pos), 
@@ -243,46 +246,15 @@ class DataManager:
         fig, axes, ax = None, None, None
         gc.collect()
     
+    def train_test_split(pct_train=.7, pct_test=.3):
+        pass
+    
     # ------------------------------------------------------------------------------------------------------------------#
-    def feature_skw_correction(self, norm_dict, show_missing_features=False):
+    def save_csv(self, dataset=None, path=None):
         """
-        Normalizes data from self.data_btc to self.data_btc_normalized
+        Saves prepared file to folder
         
-        :param norm_dict: 
-            key: synonym of lambda function
-            value: tuple: (lambda function itself, list of features to apply this function)
-            >>  Notes:
-            >>  when using NumPy functions make sure to pass X.Values in your lambda function
-                    Example: fn=lambda X: np.ma.log(X.values).filled(0)
-            >>  when using pd.Series functions passign X is enough
-                    Example: fn=lambda X: -X.diff()
-        """
-        
-        for map_fn_feat in norm_dict.values():
-            for feat in map_fn_feat[1]:
-                self.data_btc_normalized[feat] = pd.Series(
-                                                    self.feature_calculate(
-                                                            fn=map_fn_feat[0], 
-                                                            fn_prop=dict(
-                                                                base_feat_name=feat,
-                                                                corr_to_pos=True
-                                                            ), 
-                                                            return_feature=True))
-        
-        
-        # check for the features that were not normalized
-        if show_missing_features:
-            feat_diff = np.setdiff1d(self.data_btc, self.data_btc_normalized)
-            if len(cols_diff) > 0:
-                print("Features from data_btc that are not in data_btc_normalized >>> ", feat_diff)
-        
-        gc.collect()
-        
-    # ------------------------------------------------------------------------------------------------------------------#
-    def save_combined_csv(self, path=None):
-        """
-        Saves prepared file to folder as a source for NN
-        
+        :param dataset: df; if not -- saves self.data_btc
         :param path: path to save csv file(s)
         """
         if path is None:
@@ -290,8 +262,12 @@ class DataManager:
             if not os.path.exists(path):
                 path = "."
 
-        self.data_btc.to_csv(os.path.join(path, "data_btc_combined.csv"))
-        print(f">> self.data_btc --> saved to {path}")
+        (
+            self.data_btc.to_csv(os.path.join(path, "data_btc.csv")) if dataset is None 
+            else self.data_btc.to_csv(os.path.join(path, dataset))
+        )
+        
+        print(f">> ...saved to {path}")
         
     # ===============================  Plotting area ==============================================
     
