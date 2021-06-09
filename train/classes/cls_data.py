@@ -15,7 +15,7 @@ class DataManager:
     SR: reads the files related to trades of bitcoin and preprocesses them. 
         >> combining features from different src files
         >> nulls handling
-        >> normalization
+        >> skewness handhing (with user's lambdas)
     """
 
     # ===============================  Init  ====================================================
@@ -45,7 +45,6 @@ class DataManager:
 
             self._set_self_data_btc(dir_path, btc_exch_rates_filename)
             self._self_data_btc_Add_other_metrics(dir_path=dir_path)        
-            self._self_data_btc_normalized_init()
 
     # ===============================  Getting data from csv ===================================
     def _set_self_data_btc(self, dir_path, file_name):
@@ -246,8 +245,25 @@ class DataManager:
         fig, axes, ax = None, None, None
         gc.collect()
     
-    def train_test_split(pct_train=.7, pct_test=.3):
-        pass
+    # ------------------------------------------------------------------------------------------------------------------#
+    def train_test_split(self, pct_train=.8, pct_test=.2):
+        """
+        Splits data into train test sets. Should be used before normalization or power transform to avoid target leakage
+        """
+        if pct_train + pct_test != 1:
+            pct_train = 1 - pct_test if pct_test != .2
+            pct_test = 1 - pct_train if pct_train != .8
+            
+        # Getting
+        idx_num = int(self.data_btc.index.shape[0] * pct_test)
+        idx_name = data_manager.data_btc.iloc[idx_num].name
+        index = data_manager.data_btc.index
+        
+        # Splitting
+        self.X_test = data_manager.data_btc.loc[index[index>idx_name]].copy()
+        self.y_test = self.X_test.pop("Price")
+        self.X_train = data_manager.data_btc.loc[index[index<=idx_name]]
+        self.y_train = self.X_train.pop("Price")
     
     # ------------------------------------------------------------------------------------------------------------------#
     def save_csv(self, dataset=None, path=None):
