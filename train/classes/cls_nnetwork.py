@@ -27,6 +27,8 @@ class NeuralManager:
         self.y_train = None
         self.y_test = None
         
+        self.model = keras.Sequential()
+        
         self._train_test_init = dict()
         self._init_train_test_data(dir_path)
         
@@ -70,5 +72,22 @@ class NeuralManager:
     # ------------------------------------------------------------------------------------------------------------------#
     # TODO: PowerTransform
 
-    # ========================================  Model Section  ==============================================
-    
+    # ========================================  Model Creation  ==============================================
+    def combine_model(self, template:list):
+        """
+        Combines model from template
+        
+        :param template: list with layers
+            >>> example: [["Conv2D", dict(**kwargs)], ["MaxPooling2D", dict(**kwargs)]...]]
+                kwargs: kernel_size, padding, stride...
+                input_shape: should come with the first layer in template
+        """
+        
+        for i, layer in enumerate(template):
+            if 'input_shape' not in layer[1]:
+                print("input_shape is a required param...")
+                return
+                
+            self.model.add(layer)
+        
+        
