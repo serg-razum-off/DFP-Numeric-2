@@ -246,44 +246,47 @@ class DataManager:
         gc.collect()
     
     # ------------------------------------------------------------------------------------------------------------------#
-    def train_test_split(self, pct_train=.8, pct_test=.2):
+    def train_test_split(self, pct_train=.8, pct_test=.2, verbose=False):
         """
-        Splits data into train test sets. Should be used before normalization or power transform to avoid target leakage
+        Splits data into train test sets -- first periods (pct_train) as a train, last periods (pct_test) as a test 
+        Should be used before normalization or power transform to avoid target leakage
         """
         if pct_train + pct_test != 1:
-            pct_train = 1 - pct_test if pct_test != .2
-            pct_test = 1 - pct_train if pct_train != .8
+            pct_train = 1 - pct_test if pct_test != .2 else pct_train
+            pct_test = 1 - pct_train if pct_train != .8 else pct_test                        
             
         # Getting
         idx_num = int(self.data_btc.index.shape[0] * pct_test)
-        idx_name = data_manager.data_btc.iloc[idx_num].name
-        index = data_manager.data_btc.index
+        idx_name = self.data_btc.iloc[idx_num].name
+        index = self.data_btc.index
         
         # Splitting
-        self.X_test = data_manager.data_btc.loc[index[index>idx_name]].copy()
+        self.X_test = self.data_btc.loc[index[index>idx_name]]
         self.y_test = self.X_test.pop("Price")
-        self.X_train = data_manager.data_btc.loc[index[index<=idx_name]]
+        self.X_train = self.data_btc.loc[index[index<=idx_name]]
         self.y_train = self.X_train.pop("Price")
+        
+        if verbose: 
+            print("Split done with pct_train, pct_test -->", pct_train, pct_test)
     
     # ------------------------------------------------------------------------------------------------------------------#
-    def save_csv(self, dataset=None, path=None):
+    def save_csv(self, dataset=None, dataset_name="", path=None):
         """
         Saves prepared file to folder
         
         :param dataset: df; if not -- saves self.data_btc
+        :param dataset_name: str, name of dataset. Example: "data_btc"
         :param path: path to save csv file(s)
         """
         if path is None:
             path = "../data/ready_to_train"
             if not os.path.exists(path):
                 path = "."
-
-        (
-            self.data_btc.to_csv(os.path.join(path, "data_btc.csv")) if dataset is None 
-            else self.data_btc.to_csv(os.path.join(path, dataset))
-        )
         
-        print(f">> ...saved to {path}")
+        ds = dataset if dataset is not None else self.data_btc        
+        ds.to_csv(os.path.join(path, f'{dataset_name}.csv')) 
+        
+        print(f">> '{dataset_name}' saved to '{path}'")
         
     # ===============================  Plotting area ==============================================
     
