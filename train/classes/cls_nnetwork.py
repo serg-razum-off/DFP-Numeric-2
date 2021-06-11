@@ -27,7 +27,7 @@ class NeuralManager:
         self.y_train = None
         self.y_test = None
         
-        self.model = keras.Sequential()
+        self.model = None
         
         self._train_test_init = dict()
         self._init_train_test_data(dir_path)
@@ -73,21 +73,70 @@ class NeuralManager:
     # TODO: PowerTransform
 
     # ========================================  Model Creation  ==============================================
-    def combine_model(self, template:list):
+    def model_combine(self, template:list, compile_model=True, compile_dict=None, verbose=True):
         """
-        Combines model from template
+        Combines self.model from template
         
         :param template: list with layers
-            >>> example: [["Conv2D", dict(**kwargs)], ["MaxPooling2D", dict(**kwargs)]...]]
-                kwargs: kernel_size, padding, stride...
-                input_shape: should come with the first layer in template
+            >>> example: 
+                template = [
+                            TimeDistributed(Conv1D(**conv1D_params, input_shape=(None, n_steps, n_features))),
+                            TimeDistributed(MaxPooling1D(pool_size=2)),
+                            TimeDistributed(Flatten()),
+                            LSTM(50, activation='relu'),
+                            Dense(1)
+                        ]
+        :param compile_model: if True, compile_dict has to be provided
         """
         
-        for i, layer in enumerate(template):
-            if 'input_shape' not in layer[1]:
-                print("input_shape is a required param...")
-                return
-                
+        self.model = keras.Sequential()
+        for layer in template:                
             self.model.add(layer)
         
+        if compile_model and (compile_dict is None):
+            compile_dict = dict()
+            compile_defaults = dict(optimizer='adam', loss='mse', metrics=['mae'])            
+            self.helpers_set_dict_default(compile_dict, compile_defaults)
         
+        self.model.compile(**compile_dict)
+        print(">>> model compiled")
+        
+        if verbose:
+            self.model.summary()
+        
+        return True
+    
+    # ------------------------------------------------------------------------------------------------------------------#
+    def model_fit(epoches=None, print_charts=True, return_results=False):
+        """
+        Fits the self.model
+        """
+        if self.model is None:
+            print(">>>No model detected. First you have to combine it...")
+            return False
+        
+#         results = self.model.fit()
+        
+
+    # ========================================  Helpers  ==============================================
+    @staticmethod
+    def helpers_set_dict_default(dictionar, keys):
+        """
+        Sets values for keys in dict.
+        
+        :param dictionar: dictionary that has to be inspected for presence of keys
+        :param keys:
+            >> list: keys from list that are not found in dictionar, will be added with None value
+            >> dict: keys from keys dict that are not found in dictionar, will be added with keys[key] value
+                
+        
+        returns: None --> as dict is passed by ref, no real need for return
+        
+        """
+        if isinstance(keys, list):
+            for key in keys:
+                dictionar[key] = dictionar[key] if key in dictionar else None
+        
+        if isinstance(keys, dict):
+            for key, val in keys.items():
+                dictionar[key] = dictionar[key] if key in dictionar else val

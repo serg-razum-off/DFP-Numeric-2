@@ -625,4 +625,3 @@ class DataManager:
         takes query string and splits it to different lines with "and" separator
         """
         return '\n'.join(query.split("and"))
-
