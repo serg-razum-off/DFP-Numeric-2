@@ -6,6 +6,7 @@
 
 from tensorflow import keras
 import pandas as pd
+import numpy as np
 import glob, os
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 
@@ -21,13 +22,21 @@ class NeuralManager:
         """
         grabs all possible train_test splits from the dir and attaches to self.
         """
-        
+        # DFs
         self.X_train = None
         self.X_test = None
         self.y_train = None
         self.y_test = None
         
+        self.X_train_normalized = None
+        self.X_test_normalized = None
+        
+        #NP arrays
+        self.X_train_unrolled = None
+        self.X_test_unrolled = None
+        
         self.model = None
+        self.scaler = None
         
         self._train_test_init = dict()
         self._init_train_test_data(dir_path)
@@ -58,18 +67,56 @@ class NeuralManager:
         if verbose:
             print(">>> train-test inited: " , self._train_test_init)
             
-    # ===============================  Normalize, Power Transform  ==============================================
-    @staticmethod
-    def normalize_dataset(X_train=None, X_test=None, scaler=None):
-        """
-        Fits on Train set, transforms both Train and Test
+            
         
-        returns mnormalized 2D arrays
+        
+    # ===============================  Normalize, Power Transform, Split to Sqw =================================
+    def normalize_X(self, scaler=None):
         """
-        if scaler is None:
-            scaler = StandardScaler
-        return scaler.fit_transform(X_train), scaler.transform(X_test)
+        normalizes data with scaler (default is StandardScaler)
+        """
+        
+        self.scaler = StandardScaler() if scaler is None else scaler()
+        
+        self.X_train_normalized = self.scaler.fit_transform(self.X_train)
+        self.X_test_normalized = self.scaler.transform(self.X_test)
+                
+        return True
+    
+    # ------------------------------------------------------------------------------------------------------------------#    
+    @staticmethod
+    def _unroll_array_to_sequence(X, y, sequence_length=4):
+        # src: https://analyticsindiamag.com/anomaly-detection-in-temperature-sensor-data-using-lstm-rnn-model/
+        
+        if len(X) != len(y):
+            print(">>> X and y data should have same len...")
+            return False
+        
+        set_X = []
+        set_y = []
+        
+        for index in range(len(X) - sequence_length):
+            set_X.append(X[index: index + sequence_length])
+            set_y.append(y[index: index + sequence_length])
+        
+        return np.asarray(set_X), np.asarray(set_y)
+
     # ------------------------------------------------------------------------------------------------------------------#
+    def split_X_to_sequencees(self, sequence_len):
+        """
+        Splits X to sequences
+        >>> Example: [1,2,3,4,5] n_steps/ sequence_len=3 --> [1,2,3], [2,3,4], [3,4,5]
+        """
+        self.X_train_unrolled, self.y_train_unrolled = self._unroll_array_to_sequence(
+            self.X_train_normalized, 
+            self.y_train.values, 
+            sequence_len)
+        
+        self.X_test_unrolled, self.y_test_unrolled = self._unroll_array_to_sequence(
+            self.X_test_normalized, 
+            self.y_test.values, 
+            sequence_len)    
+        # ------------------------------------------------------------------------------------------------------------------#
     # TODO: PowerTransform
 
     # ========================================  Model Creation  ==============================================
