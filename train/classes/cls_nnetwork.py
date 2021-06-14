@@ -154,15 +154,37 @@ class NeuralManager:
         return True
     
     # ------------------------------------------------------------------------------------------------------------------#
-    def model_fit(epoches=None, print_charts=True, return_results=False):
+    def model_fit(self, n_epoch=None, n_seq=None, n_steps=None, print_charts=True, return_results=False):
         """
         Fits the self.model
         """
         if self.model is None:
             print(">>>No model detected. First you have to combine it...")
             return False
+        if n_epoch is None:
+            n_epoch = 10
+        if n_seq is None:
+            n_seq = 2
+        if n_steps is None:
+            n_steps = 2
         
-#         results = self.model.fit()
+        n_features = self.X_train.shape[1]
+        
+        x_train = self.X_train_unrolled 
+        y_train = self.y_train_unrolled
+        x_train = x_train.reshape(x_train.shape[0], n_seq, n_steps, n_features)
+
+        x_test = self.X_test_unrolled 
+        y_test = self.y_test_unrolled
+        x_test = x_test.reshape(x_test.shape[0], n_seq, n_steps, n_features)
+        
+        results = self.model.fit(
+                                x=x_train, y=y_train,
+                                epochs=n_epoch,
+                                batch_size = 32,
+                                validation_data = (x_test, y_test),
+                                verbose = 2
+                            )
         
 
     # ========================================  Helpers  ==============================================
