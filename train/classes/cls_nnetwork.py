@@ -8,6 +8,7 @@ from tensorflow import keras
 import pandas as pd
 import numpy as np
 import glob, os
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 
 
@@ -120,7 +121,7 @@ class NeuralManager:
     # TODO: PowerTransform
 
     # ========================================  Model Creation  ==============================================
-    def model_combine(self, template:list, compile_model=True, compile_dict=None, verbose=True):
+    def model_combine(self, template:list, compile_model=True, compile_dict=None, metrics=None, verbose=True):
         """
         Combines self.model from template
         
@@ -134,16 +135,21 @@ class NeuralManager:
                             Dense(1)
                         ]
         :param compile_model: if True, compile_dict has to be provided
+        :param metrics: list of metrics that will be used in model compilation
         """
         
         self.model = keras.Sequential()
         for layer in template:                
             self.model.add(layer)
         
+        if metrics is None:
+            metrics = ['mae']
+            
         if compile_model and (compile_dict is None):
             compile_dict = dict()
-            compile_defaults = dict(optimizer='adam', loss='mse', metrics=['mae'])            
-            self.helpers_set_dict_default(compile_dict, compile_defaults)
+            compile_defaults = dict(optimizer='adam', loss='rmse', metrics=['mae'])            
+            self._helpers_set_dict_default(compile_dict, compile_defaults)
+            
         
         self.model.compile(**compile_dict)
         print(">>> model compiled")
@@ -154,9 +160,10 @@ class NeuralManager:
         return True
     
     # ------------------------------------------------------------------------------------------------------------------#
-    def model_fit(self, n_epoch=None, n_seq=None, n_steps=None, print_charts=True, return_results=False):
+    def model_fit(self, n_epoch=None, n_seq=None, n_steps=None, batch_size=32, verbose=2,
+                  print_charts=True, use_tensorboard=False, return_results=False):
         """
-        Fits the self.model
+        Fits the self.model, plots 
         """
         if self.model is None:
             print(">>>No model detected. First you have to combine it...")
@@ -181,15 +188,45 @@ class NeuralManager:
         results = self.model.fit(
                                 x=x_train, y=y_train,
                                 epochs=n_epoch,
-                                batch_size = 32,
-                                validation_data = (x_test, y_test),
-                                verbose = 2
+                                batch_size=batch_size,
+                                validation_data=(x_test, y_test),
+                                verbose=verbose,
                             )
+        
+        if (print_charts and use_tensorboard):
+            # TODO
+            pass
+        
+        # simple matplot chart
+        if print_charts and (not use_tensorboard):
+            loss = np.array(results.history['loss']);       
+            val_loss = np.array(results.history['val_loss'])
+            
+            ax_properties = dict(ch_title='Loss by Epoch\n', 
+                                     x_label='epochs', 
+                                     y_label='Loss', 
+                                     x_lim=None, 
+                                     y_lim=None, 
+                                     label_series_base=val_loss, 
+                                     shift=+5e-4)
+                        
+            
+            fig, ax = plt.subplots(1,1, figsize=(10,5))
+            ax.plot(loss, label="train_loss", marker='o') 
+            ax.plot(val_loss, label="test_loss", marker='o')
+            
+            
+            self._helpers_plt_set_ax_properties(ax=ax, ax_properties=ax_properties)
+            
+        
+        
+        if return_results:
+            return val_loss# results
         
 
     # ========================================  Helpers  ==============================================
     @staticmethod
-    def helpers_set_dict_default(dictionar, keys):
+    def _helpers_set_dict_default(dictionar, keys):
         """
         Sets values for keys in dict.
         
@@ -209,3 +246,46 @@ class NeuralManager:
         if isinstance(keys, dict):
             for key, val in keys.items():
                 dictionar[key] = dictionar[key] if key in dictionar else val
+    # ------------------------------------------------------------------------------------------------------------------#                
+    @staticmethod
+    def _helpers_plt_set_ax_properties(ax=None, ax_properties=None):
+        """
+        formats plot created on the base of plt.subplots() with the properties in ax_properties
+        :param ax:
+        :param ax_properties:
+        ax_properties = {
+            0: dict(ch_title='Accuracy by Epoch\n', x_label='', y_label='Accuracy', x_lim=None, y_lim=977e-3,
+                label_series_base=val_accur, shift=-3e-4),
+            1: dict(ch_title='Loss by Epoch\n', x_label='epochs', y_label='Loss', x_lim=None, y_lim=None,
+                label_series_base=val_loss, shift=+5e-4)
+        }
+        :return:
+        """
+        # general
+        ax.legend(loc=3)
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False);
+        ax.grid(True, color='0.90')
+        # ax_properties
+        _plt_label_Series(ax=ax, arr_of_labels=ax_properties['label_series_base'],
+                         shift=ax_properties['shift'])
+        
+        
+        ax.set_ylim(ax_properties['y_lim'])
+        ax.set_title(ax_properties['ch_title'], fontweight='bold')  # oc='left')
+        ax.set_xlabel(ax_properties['x_label'])
+        ax.set_ylabel(ax_properties['y_label'])
+        
+    # ------------------------------------------------------------------------------------------------------------------#
+    @staticmethod
+    def _plt_label_Series(ax=None, arr_of_labels=None, shift=None):
+        """
+        spits lablels to the dots in the Series chart
+        :param ax: ax
+        :param arr_of_labels: arr of values, ie: np.array(history.history['accuracy']) from keras.Sequential()
+        :param shift: int to shift from the line itself
+        :return: None
+        """
+        for i, val in enumerate(arr_of_labels):
+            ax.text(i, val + shift, f"{val:.4f}", weight='bold')
+
