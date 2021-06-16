@@ -160,7 +160,7 @@ class NeuralManager:
         return True
     
     # ------------------------------------------------------------------------------------------------------------------#
-    def model_fit(self, n_epoch=None, n_seq=None, n_steps=None, batch_size=32, verbose=2,
+    def model_fit(self, n_epoch=None, n_seq=None, n_steps=None, batch_size=32, verbose=2, early_stopping=True,
                   print_charts=True, use_tensorboard=False, return_results=False):
         """
         Fits the self.model, plots dynamics
@@ -186,26 +186,30 @@ class NeuralManager:
         y_test = self.y_test_unrolled
         x_test = x_test.reshape(x_test.shape[0], n_seq, n_steps, n_features)
         
-        ES_callback = keras.callbacks.EarlyStopping(monitor='loss', patience=3)        
-        results = self.model.fit(
-                                x=x_train, y=y_train,
-                                epochs=n_epoch,
-                                batch_size=batch_size,
-                                validation_data=(x_test, y_test),
-                                verbose=verbose,
-                                callbacks=[ES_callback]
-                            )
+        ES_callback = keras.callbacks.EarlyStopping(monitor='loss', patience=3) 
+        fit_params = dict(
+                            x=x_train, y=y_train,
+                            epochs=n_epoch,
+                            batch_size=batch_size,
+                            validation_data=(x_test, y_test),
+                            verbose=verbose,
+                            callbacks=[ES_callback] 
+        )
+        if not early_stopping:
+            fit_params.pop('callbacks')
+            
+        results = self.model.fit(**fit_params)
         
         if (print_charts and use_tensorboard):
             # TODO
             pass
         
-        # simple matplot chart
         if print_charts and (not use_tensorboard):
+            # simple matplot chart
             loss = np.array(results.history['loss']);       
             val_loss = np.array(results.history['val_loss'])
             
-            ax_properties = dict(ch_title=f'Loss by Epoch [{n_epoch}], EarlyStopping\n', 
+            ax_properties = dict(ch_title=f'Loss by Epoch [{n_epoch}], EarlyStopping={early_stopping}\n', 
                                      x_label='epochs', 
                                      y_label='Loss', 
                                      x_lim=None, 
@@ -221,6 +225,9 @@ class NeuralManager:
             self._helpers_plt_set_ax_properties(ax=ax, ax_properties=ax_properties)
             ax.legend(loc='upper right')
             
+            ehpochs_before_stop = len(loss)
+            ax.text(x=ehpochs_before_stop, y=loss[-1], s=f'{loss[-1]:.1f}')
+            ax.text(x=ehpochs_before_stop, y=val_loss[-1], s=f'{val_loss[-1]:.1f}')
         
         
         if return_results:
