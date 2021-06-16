@@ -103,7 +103,7 @@ class NeuralManager:
         return np.asarray(set_X), np.asarray(set_y)
 
     # ------------------------------------------------------------------------------------------------------------------#
-    def split_X_to_sequencees(self, sequence_len):
+    def unroll_X_to_sequences(self, sequence_len):
         """
         Splits X to sequences
         >>> Example: [1,2,3,4,5] n_steps/ sequence_len=3 --> [1,2,3], [2,3,4], [3,4,5]
@@ -120,7 +120,7 @@ class NeuralManager:
         # ------------------------------------------------------------------------------------------------------------------#
     # TODO: PowerTransform
 
-    # ========================================  Model Creation  ==============================================
+    # ===========================================  Model   =================================================
     def model_combine(self, template:list, compile_model=True, compile_dict=None, metrics=None, verbose=True):
         """
         Combines self.model from template
@@ -163,7 +163,8 @@ class NeuralManager:
     def model_fit(self, n_epoch=None, n_seq=None, n_steps=None, batch_size=32, verbose=2,
                   print_charts=True, use_tensorboard=False, return_results=False):
         """
-        Fits the self.model, plots 
+        Fits the self.model, plots dynamics
+        uses self.Xy_traintest_unrolled as input data for model
         """
         if self.model is None:
             print(">>>No model detected. First you have to combine it...")
@@ -185,12 +186,14 @@ class NeuralManager:
         y_test = self.y_test_unrolled
         x_test = x_test.reshape(x_test.shape[0], n_seq, n_steps, n_features)
         
+        ES_callback = keras.callbacks.EarlyStopping(monitor='loss', patience=3)        
         results = self.model.fit(
                                 x=x_train, y=y_train,
                                 epochs=n_epoch,
                                 batch_size=batch_size,
                                 validation_data=(x_test, y_test),
                                 verbose=verbose,
+                                callbacks=[ES_callback]
                             )
         
         if (print_charts and use_tensorboard):
@@ -202,7 +205,7 @@ class NeuralManager:
             loss = np.array(results.history['loss']);       
             val_loss = np.array(results.history['val_loss'])
             
-            ax_properties = dict(ch_title='Loss by Epoch\n', 
+            ax_properties = dict(ch_title=f'Loss by Epoch [{n_epoch}], EarlyStopping\n', 
                                      x_label='epochs', 
                                      y_label='Loss', 
                                      x_lim=None, 
@@ -214,16 +217,22 @@ class NeuralManager:
             fig, ax = plt.subplots(1,1, figsize=(10,5))
             ax.plot(loss, label="train_loss", marker='o') 
             ax.plot(val_loss, label="test_loss", marker='o')
-            
-            
+                        
             self._helpers_plt_set_ax_properties(ax=ax, ax_properties=ax_properties)
+            ax.legend(loc='upper right')
             
         
         
         if return_results:
             return val_loss# results
         
-
+    # ------------------------------------------------------------------------------------------------------------------#
+#     def plot_predicted_price(self):
+#         """"
+#         Plots predicted price for test part of the data 
+#         """"
+#         pass
+    
     # ========================================  Helpers  ==============================================
     @staticmethod
     def _helpers_set_dict_default(dictionar, keys):
@@ -261,15 +270,18 @@ class NeuralManager:
         }
         :return:
         """
+
+        
         # general
         ax.legend(loc=3)
         ax.spines["right"].set_visible(False)
         ax.spines["top"].set_visible(False);
         ax.grid(True, color='0.90')
-        # ax_properties
-        _plt_label_Series(ax=ax, arr_of_labels=ax_properties['label_series_base'],
-                         shift=ax_properties['shift'])
-        
+  
+        # ax_properties        
+#         for i, val in enumerate(ax_properties['label_series_base']):
+#                 ax.text(i, val + ax_properties['shift'], f"{val:.1f}", rotation=45)
+                
         
         ax.set_ylim(ax_properties['y_lim'])
         ax.set_title(ax_properties['ch_title'], fontweight='bold')  # oc='left')
@@ -277,15 +289,3 @@ class NeuralManager:
         ax.set_ylabel(ax_properties['y_label'])
         
     # ------------------------------------------------------------------------------------------------------------------#
-    @staticmethod
-    def _plt_label_Series(ax=None, arr_of_labels=None, shift=None):
-        """
-        spits lablels to the dots in the Series chart
-        :param ax: ax
-        :param arr_of_labels: arr of values, ie: np.array(history.history['accuracy']) from keras.Sequential()
-        :param shift: int to shift from the line itself
-        :return: None
-        """
-        for i, val in enumerate(arr_of_labels):
-            ax.text(i, val + shift, f"{val:.4f}", weight='bold')
-
