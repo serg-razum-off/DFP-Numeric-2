@@ -93,14 +93,14 @@ class NeuralManager:
             print(">>> X and y data should have same len...")
             return False
         
-        set_X = []
-        set_y = []
+        list_X = []
+        list_y = []
         
         for index in range(len(X) - sequence_length):
-            set_X.append(X[index: index + sequence_length])
-            set_y.append(y[index: index + sequence_length])
+            list_X.append(X[index: index + sequence_length])
+            list_y.append(y[index: index + sequence_length])
         
-        return np.asarray(set_X), np.asarray(set_y)
+        return np.asarray(list_X), np.asarray(list_y)
 
     # ------------------------------------------------------------------------------------------------------------------#
     def unroll_X_to_sequences(self, sequence_len):
@@ -160,31 +160,32 @@ class NeuralManager:
         return True
     
     # ------------------------------------------------------------------------------------------------------------------#
-    def model_fit(self, n_epoch=None, n_seq=None, n_steps=None, batch_size=32, verbose=2, early_stopping=True,
+    def model_fit(self, data_shape_train, data_shape_test, n_epoch=None, batch_size=32, verbose=2, early_stopping=True,
                   print_charts=True, use_tensorboard=False, return_results=False):
         """
         Fits the self.model, plots dynamics
         uses self.Xy_traintest_unrolled as input data for model
+        
+        :parameter data_shape_train: tuple to unpack in x_train.reshape 
         """
         if self.model is None:
             print(">>>No model detected. First you have to combine it...")
             return False
         if n_epoch is None:
             n_epoch = 10
-        if n_seq is None:
-            n_seq = 2
-        if n_steps is None:
-            n_steps = 2
-        
+        if (data_shape_train is None) or (data_shape_test is None):
+            print(">>> data_shape is an obligatory param!!")
+            return False
+
         n_features = self.X_train.shape[1]
         
         x_train = self.X_train_unrolled 
         y_train = self.y_train_unrolled
-        x_train = x_train.reshape(x_train.shape[0], n_seq, n_steps, n_features)
+        x_train = x_train.reshape(*data_shape_train)
 
         x_test = self.X_test_unrolled 
         y_test = self.y_test_unrolled
-        x_test = x_test.reshape(x_test.shape[0], n_seq, n_steps, n_features)
+        x_test = x_test.reshape(*data_shape_test)
         
         ES_callback = keras.callbacks.EarlyStopping(monitor='loss', patience=3) 
         fit_params = dict(
@@ -233,6 +234,8 @@ class NeuralManager:
         if return_results:
             return val_loss# results
         
+        return True
+    
     # ------------------------------------------------------------------------------------------------------------------#
 #     def plot_predicted_price(self):
 #         """"
