@@ -219,7 +219,7 @@ class NeuralManager:
                                      shift=+5e-4)
                         
             
-            fig, ax = plt.subplots(1,1, figsize=(10,5))
+            fig, ax = plt.subplots(1,1, figsize=(15,5))
             ax.plot(loss, label="train_loss", marker='o') 
             ax.plot(val_loss, label="test_loss", marker='o')
                         
