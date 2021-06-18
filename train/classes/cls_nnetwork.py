@@ -105,18 +105,18 @@ class NeuralManager:
     # ------------------------------------------------------------------------------------------------------------------#
     def unroll_X_to_sequences(self, sequence_len):
         """
-        Splits X to sequences
+        Splits X_normalized to sequences
         >>> Example: [1,2,3,4,5] n_steps/ sequence_len=3 --> [1,2,3], [2,3,4], [3,4,5]
         """
         self.X_train_unrolled, self.y_train_unrolled = self._unroll_array_to_sequence(
-            self.X_train_normalized, 
-            self.y_train.values, 
-            sequence_len)
+            X=self.X_train_normalized, 
+            y=self.y_train.values, 
+            sequence_length=sequence_len)
         
         self.X_test_unrolled, self.y_test_unrolled = self._unroll_array_to_sequence(
-            self.X_test_normalized, 
-            self.y_test.values, 
-            sequence_len)    
+            X=self.X_test_normalized, 
+            y=self.y_test.values, 
+            sequence_length=sequence_len)    
         # ------------------------------------------------------------------------------------------------------------------#
     # TODO: PowerTransform
 
