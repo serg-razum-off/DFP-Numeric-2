@@ -53,17 +53,17 @@ class NeuralManager:
             file_name =  file_path.split('/')[-1].split('.')[0]
             
             if "X_train" in file_name:
-                self.X_train = pd.read_csv(file_path, index_col="Date")
-                self._train_test_init[file_name] = True
+                self.X_train = pd.read_csv(file_path, index_col="Date").sort_index(ascending=True)
+                self._train_test_init['X_train'] = True
             if "X_test" in file_name:
-                self.X_test = pd.read_csv(file_path, index_col="Date")
-                self._train_test_init[file_name] = True
+                self.X_test = pd.read_csv(file_path, index_col="Date").sort_index(ascending=True)
+                self._train_test_init['X_test'] = True
             if "y_train" in file_name:
-                self.y_train = pd.read_csv(file_path, index_col="Date")
-                self._train_test_init[file_name] = True
+                self.y_train = pd.read_csv(file_path, index_col="Date").sort_index(ascending=True)
+                self._train_test_init['y_train'] = True
             if "y_test" in file_name:
-                self.y_test = pd.read_csv(file_path, index_col="Date")
-                self._train_test_init[file_name] = True
+                self.y_test = pd.read_csv(file_path, index_col="Date").sort_index(ascending=True)
+                self._train_test_init['y_test'] = True
                 
         if verbose:
             print(">>> train-test inited: " , self._train_test_init)
@@ -71,7 +71,7 @@ class NeuralManager:
             
         
         
-    # ===============================  Normalize, Power Transform, Split to Sqw =================================
+    # ===============================  Normalize, Power Transform, Split to Squ =================================
     def normalize_X(self, scaler=None):
         """
         normalizes data with scaler (default is StandardScaler)
@@ -86,7 +86,7 @@ class NeuralManager:
     
     # ------------------------------------------------------------------------------------------------------------------#    
     @staticmethod
-    def _unroll_array_to_sequence(X, y, sequence_length=4):
+    def _unroll_XY_to_sequence(X, y, sequence_length=4):
         # src: https://analyticsindiamag.com/anomaly-detection-in-temperature-sensor-data-using-lstm-rnn-model/
         
         if len(X) != len(y):
@@ -98,22 +98,22 @@ class NeuralManager:
         
         for index in range(len(X) - sequence_length):
             list_X.append(X[index: index + sequence_length])
-            list_y.append(y[index: index + sequence_length])
+            list_y.append(y[index + sequence_length])
         
         return np.asarray(list_X), np.asarray(list_y)
 
     # ------------------------------------------------------------------------------------------------------------------#
-    def unroll_X_to_sequences(self, sequence_len):
+    def unroll_train_test_to_sequences(self, sequence_len):
         """
         Splits X_normalized to sequences
         >>> Example: [1,2,3,4,5] n_steps/ sequence_len=3 --> [1,2,3], [2,3,4], [3,4,5]
         """
-        self.X_train_unrolled, self.y_train_unrolled = self._unroll_array_to_sequence(
+        self.X_train_unrolled, self.y_train_unrolled = self._unroll_XY_to_sequence(
             X=self.X_train_normalized, 
             y=self.y_train.values, 
             sequence_length=sequence_len)
         
-        self.X_test_unrolled, self.y_test_unrolled = self._unroll_array_to_sequence(
+        self.X_test_unrolled, self.y_test_unrolled = self._unroll_XY_to_sequence(
             X=self.X_test_normalized, 
             y=self.y_test.values, 
             sequence_length=sequence_len)    
