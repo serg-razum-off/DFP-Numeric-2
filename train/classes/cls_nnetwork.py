@@ -30,6 +30,8 @@ class NeuralManager:
         self.y_train = None
         self.y_test = None
         
+        self.pred_y = None # for predicted y
+        
         self.X_train_normalized = None
         self.X_test_normalized = None
         
@@ -59,16 +61,16 @@ class NeuralManager:
             file_name =  file_path.split('/')[-1].split('.')[0]
             
             if "X_train" in file_name:
-                self.X_train = pd.read_csv(file_path, index_col="Date").sort_index(ascending=True)
+                self.X_train = pd.read_csv(file_path, index_col="Date", parse_dates=True).sort_index(ascending=True)
                 self._train_test_init['X_train'] = True
             if "X_test" in file_name:
-                self.X_test = pd.read_csv(file_path, index_col="Date").sort_index(ascending=True)
+                self.X_test = pd.read_csv(file_path, index_col="Date", parse_dates=True).sort_index(ascending=True)
                 self._train_test_init['X_test'] = True
             if "y_train" in file_name:
-                self.y_train = pd.read_csv(file_path, index_col="Date").sort_index(ascending=True)
+                self.y_train = pd.read_csv(file_path, index_col="Date", parse_dates=True).sort_index(ascending=True)
                 self._train_test_init['y_train'] = True
             if "y_test" in file_name:
-                self.y_test = pd.read_csv(file_path, index_col="Date").sort_index(ascending=True)
+                self.y_test = pd.read_csv(file_path, index_col="Date", parse_dates=True).sort_index(ascending=True)
                 self._train_test_init['y_test'] = True
                 
         if verbose:
@@ -249,8 +251,8 @@ class NeuralManager:
                         
             
             fig, ax = plt.subplots(1,1, figsize=(15,5))
-            ax.plot(loss, label="train_loss", marker='o') 
-            ax.plot(val_loss, label="test_loss", marker='o')
+            ax.plot(loss, label="train_loss", marker='o', linewidth=1) 
+            ax.plot(val_loss, label="test_loss", marker='o', linewidth=1)
                         
             self._helpers_plt_set_ax_properties(ax=ax, ax_properties=ax_properties)
             ax.legend(loc='upper right')
@@ -272,21 +274,30 @@ class NeuralManager:
     
     # ========================================  Plotting  ==============================================
 
-    def plot_predicted_vs_test_price(self):
+    def plot_predicted_vs_test_price(self, **kwargs):
         """
         Plots predicted price for test part of the data 
         """
         
         test_y = pd.DataFrame(data=self.y_test_unrolled, index=self.y_test[self.training_seq_params['seq_len']:].index)        
         
-        pred_y = pd.DataFrame(index=test_y.index, data=[
-                self.model_predict(seq.reshape(1,
-                                               self.training_seq_params['seq_len'],
-                                               self.training_seq_params['n_features']))[0][0] 
-                                for seq in self.X_test_unrolled], 
-                    )
+        if self.pred_y is None:
+            self.pred_y = pd.DataFrame(index=test_y.index, data=[
+                    self.model_predict(seq.reshape(1,
+                                                   self.training_seq_params['seq_len'],
+                                                   self.training_seq_params['n_features']))[0][0] 
+                                    for seq in self.X_test_unrolled], 
+                        )
         
-        self.plt_plot_ts(test_y)
+        
+        fig, ax = plt.subplots(1, figsize=(15,5))
+        
+        self.plt_plot_ts(self.pred_y, label="predicted_price", ax=ax, color="#ffa64d", linewidth=2, **kwargs)
+        self.plt_plot_ts(test_y, label="test_price", ax=ax, linewidth=1, **kwargs)
+        
+        plt.legend(['predicted_price','real_test_price'])
+        plt.legend(loc='upper left')
+        
     # ------------------------------------------------------------------------------------------------------------------#
     def plt_plot_ts(self, series: str, **kwargs):
         """
@@ -323,16 +334,16 @@ class NeuralManager:
         titles["title"] = f"Predicted price vs Test price"
 
         if filters is not None:
-            series, query_str = self.helpers_query_df(self.data_btc, series_name, filters=filters)            
+            series, query_str = self.helpers_query_series(series, filters=filters)            
             filters_repr = self.helpers_filters_repr(query_str)
             titles["title"] = str(titles["title"]) + f"\nfilters: {filters_repr}"
 
         # plt
-        ax.plot(series, color=color, ls=ls)
+        ax.plot(series, color=color, ls=ls, **kwargs)
         ax.set_xlabel(titles['xlabel'])
         ax.set_ylabel(titles['ylabel'])
 
-#         print('titles[xy] >>>> ', titles['xy'])
+        # print('titles[xy] >>>> ', titles['xy'])
         if titles['xy'] is None:
             ax.set_title(titles['title'],
                          fontweight="bold", fontsize=titles['fontsize'], loc=titles['title_loc'])
@@ -432,16 +443,16 @@ class NeuralManager:
     # ------------------------------------------------------------------------------------------------------------------#
     # ===============================  Helpers from data class  ==============================================
     @staticmethod
-    def helpers_query_df(df, series_name=None, merge_condition='and', filters=None, return_query_str=True):
+    def helpers_query_series(series=None, merge_condition='and', filters=None, return_query_str=True):
         """
-        filters DF. If series_name, this series will be returned after filtering
+        filters series. If series_name, this series will be returned after filtering
         """
         query = ''
         for filt in filters:
             query += f'{filt} {merge_condition} '
 
         query = query.rsplit(' ', 2)[0]
-        return (df.query(query)[series_name], query) if series_name is not None else (df.query(query), query)
+        return (series.query(query), query)
     # ------------------------------------------------------------------------------------------------------------------#
     @staticmethod
     def helpers_set_dict_default(dictionar, keys, return_dict=False):
@@ -495,3 +506,4 @@ class NeuralManager:
         takes query string and splits it to different lines with "and" separator
         """
         return '\n'.join(query.split("and"))
+    
