@@ -7,8 +7,9 @@
 from tensorflow import keras
 import pandas as pd
 import numpy as np
-import glob, os
+import glob, os, gc
 import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 
 
@@ -44,8 +45,8 @@ class NeuralManager:
         self._init_train_test_data(dir_path)
         
         self.training_seq_params = dict()
-        self.X_train_shape = set()
-        self.X_test_shape = set()
+        self.X_train_shape = list() # order = 'n_rows', 'seq_len', 'n_features'
+        self.X_test_shape = list()
         
     
     def _init_train_test_data(self, dir_path, verbose=True):
@@ -112,11 +113,13 @@ class NeuralManager:
         """
         self.X_train_unrolled, self.y_train_unrolled = self._unroll_XY_to_sequence(
             X=self.X_train_normalized, 
-            y=self.y_train.values)
+            y=self.y_train.values)        
+        self.X_train_shape.insert(0, self.X_train_unrolled.shape[0])
         
         self.X_test_unrolled, self.y_test_unrolled = self._unroll_XY_to_sequence(
             X=self.X_test_normalized, 
-            y=self.y_test.values)    
+            y=self.y_test.values)
+        self.X_test_shape.insert(0, self.X_test_unrolled.shape[0])
         # ------------------------------------------------------------------------------------------------------------------#
     # TODO: PowerTransform
 
@@ -132,20 +135,12 @@ class NeuralManager:
                 !! n_features sets here from self.X_train --> so all EDA and FeatureSelection is done before
             """
             self.training_seq_params = shape_kwargs
-            self.training_seq_params['n_features'] = len(self.X_train.columns)
+            self.training_seq_params['n_features'] = len([c for c in self.X_train.columns if "Price" not in c])
 
-
-            self.X_train_shape = (
-                self.X_train.shape[0],
-                self.training_seq_params['seq_len'],
-                self.training_seq_params['n_features'],
-            )
-            self.X_test_shape = (
-                self.X_test.shape[0],
-                self.training_seq_params['seq_len'],
-                self.training_seq_params['n_features'],
-            )
-
+            for shape in [self.X_train_shape, self.X_test_shape]:
+                shape.append(self.training_seq_params['seq_len'])
+                shape.append(self.training_seq_params['n_features'])
+            
 
             if verbose:
                 print('self.training_seq_params --> ', self.training_seq_params)
@@ -195,7 +190,7 @@ class NeuralManager:
     
     
     # ------------------------------------------------------------------------------------------------------------------#
-    def model_fit(self, data_shape_test, n_epoch=None, batch_size=32, verbose=2, early_stopping=True,
+    def model_fit(self, n_epoch=None, batch_size=32, verbose=2, early_stopping=True,
                   print_charts=True, use_tensorboard=False, return_results=False):
         """
         Fits the self.model, plots dynamics
@@ -208,18 +203,18 @@ class NeuralManager:
         if n_epoch is None:
             n_epoch = 10
         if (self.X_train_shape is None) or (self.X_test_shape is None):
-            print(">>> before fitting set shapes with self.set_train_test_data_shapes())
+            print(">>> before fitting set shapes with self.set_train_test_data_shapes()")
             return False
 
         n_features = self.X_train.shape[1]
         
         x_train = self.X_train_unrolled 
         y_train = self.y_train_unrolled
-        x_train = x_train.reshape(*data_shape_train)
+        x_train = x_train.reshape(*self.X_train_shape)
 
         x_test = self.X_test_unrolled 
         y_test = self.y_test_unrolled
-        x_test = x_test.reshape(*data_shape_test)
+        x_test = x_test.reshape(*self.X_test_shape)
         
         ES_callback = keras.callbacks.EarlyStopping(monitor='loss', patience=3) 
         fit_params = dict(
@@ -272,14 +267,113 @@ class NeuralManager:
     
     # ------------------------------------------------------------------------------------------------------------------#
     def model_predict(self, X):
-        pass
-    # ------------------------------------------------------------------------------------------------------------------#
-#     def plot_predicted_price(self):
-#         """"
-#         Plots predicted price for test part of the data 
-#         """"
-#         pass
+        
+        return self.model.predict(X)
     
+    # ========================================  Plotting  ==============================================
+
+    def plot_predicted_vs_test_price(self):
+        """
+        Plots predicted price for test part of the data 
+        """
+        
+        test_y = pd.DataFrame(data=self.y_test_unrolled, index=self.y_test[self.training_seq_params['seq_len']:].index)        
+        
+        pred_y = pd.DataFrame(index=test_y.index, data=[
+                self.model_predict(seq.reshape(1,
+                                               self.training_seq_params['seq_len'],
+                                               self.training_seq_params['n_features']))[0][0] 
+                                for seq in self.X_test_unrolled], 
+                    )
+        
+        self.plt_plot_ts(test_y)
+    # ------------------------------------------------------------------------------------------------------------------#
+    def plt_plot_ts(self, series: str, **kwargs):
+        """
+        Plots a timeseries plot for one feature
+
+        :param series_name: series_name of DF
+        :param kwargs: all other optional params:        
+            >> :param titles: titles={'xlabel':xlabel, 'ylabel':ylabel, 'title':title, 'title_loc':title_loc}
+                    >> title_loc --> location of the title
+                    >> xy --> location of the title in [x,y] form. Overrides title_loc param
+            >> :param color: line color "#8591e0"
+            >> :param ls: line style "-'
+            >> :param figsize: default figs_size=(10, 4)
+            >> :param rc: rc dict for sns styling the chart def: {"grid.linewidth": 1, }
+            >> :param ax: axes to plot timeseries.
+            >> :param filters: array of filters. Exmpl: ["salary=>2.5e4", "salary <= 1e5"]
+            >> :param annotate: if to show min max last on the chart
+
+        :return:
+        """
+        # get defaults from **kwargs
+        titles = kwargs.pop('titles') if 'titles' in kwargs else dict(xy=[1, 1.1], title_loc='center')
+        color = kwargs.pop('color') if 'color' in kwargs else "#8591e0"
+        ls = kwargs.pop('ls') if 'ls' in kwargs else "-"
+        figsize = kwargs.pop('figsize') if 'figsize' in kwargs else (10, 4)
+        rc = kwargs.pop('rc') if 'rc' in kwargs else {"grid.linewidth": 1, }
+        ax = kwargs.pop('ax') if 'ax' in kwargs else plt.subplots(figsize=figsize)[1]
+        filters = kwargs.pop('filters') if 'filters' in kwargs else None
+        annotate = kwargs.pop('annotate') if 'annotate' in kwargs else None
+
+        self.helpers_set_dict_default(titles, ['xlabel','ylabel','title','fontsize','xy','title_loc'])
+
+        # prepaing Series
+        titles["title"] = f"Predicted price vs Test price"
+
+        if filters is not None:
+            series, query_str = self.helpers_query_df(self.data_btc, series_name, filters=filters)            
+            filters_repr = self.helpers_filters_repr(query_str)
+            titles["title"] = str(titles["title"]) + f"\nfilters: {filters_repr}"
+
+        # plt
+        ax.plot(series, color=color, ls=ls)
+        ax.set_xlabel(titles['xlabel'])
+        ax.set_ylabel(titles['ylabel'])
+
+#         print('titles[xy] >>>> ', titles['xy'])
+        if titles['xy'] is None:
+            ax.set_title(titles['title'],
+                         fontweight="bold", fontsize=titles['fontsize'], loc=titles['title_loc'])
+        else:
+            ax.set_title(titles['title'],
+                         fontweight="bold", fontsize=titles['fontsize'], x=titles['xy'][0], y=titles['xy'][1])
+
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False);
+
+        # annotate
+        if annotate:
+            last_point_ann = 'last'
+            max_ann = 'max'
+            min_ann = 'min'
+            if series[0] == series.min():           
+                last_point_ann = 'last, min'
+                min_ann = ''
+            if series[0] == series.max():           
+                last_point_ann = 'last, max'
+                max_ann = ''
+
+            annotations = [(series.idxmin(), series.min(), min_ann), 
+                           (series.idxmax(), series.max(), max_ann),
+                           (series.index[0], series[0], last_point_ann)]
+
+            for ann in annotations:
+                ax.annotate(f'{ann[1]:,} ({ann[2]})', (mdates.date2num(ann[0]), ann[1]))
+
+        # applying styling
+        sns.set_context("poster", font_scale=.6, rc={"grid.linewidth": 1})
+
+        # styling
+        plt.gca().spines['top'].set_visible(False)
+        plt.gca().spines['right'].set_visible(False)
+
+        # gc
+        series = None
+
+        gc.collect()
+
     # ========================================  Helpers  ==============================================
     @staticmethod
     def _helpers_set_dict_default(dictionar, keys):
@@ -336,3 +430,68 @@ class NeuralManager:
         ax.set_ylabel(ax_properties['y_label'])
         
     # ------------------------------------------------------------------------------------------------------------------#
+    # ===============================  Helpers from data class  ==============================================
+    @staticmethod
+    def helpers_query_df(df, series_name=None, merge_condition='and', filters=None, return_query_str=True):
+        """
+        filters DF. If series_name, this series will be returned after filtering
+        """
+        query = ''
+        for filt in filters:
+            query += f'{filt} {merge_condition} '
+
+        query = query.rsplit(' ', 2)[0]
+        return (df.query(query)[series_name], query) if series_name is not None else (df.query(query), query)
+    # ------------------------------------------------------------------------------------------------------------------#
+    @staticmethod
+    def helpers_set_dict_default(dictionar, keys, return_dict=False):
+        """
+        Sets values for keys in dict.
+        
+        :param dictionar: dictionary that has to be inspected for presence of keys
+        :param keys:
+            >> list: keys from list that are not found in dictionar, will be added with None value
+            >> dict: keys from keys dict that are not found in dictionar, will be added with keys[key] value
+                
+        
+        returns: None or dict 
+        as dict is passed by ref, no real need for return
+        
+        """
+        if isinstance(keys, list):
+            for key in keys:
+                dictionar[key] = dictionar[key] if key in dictionar else None
+        
+        if isinstance(keys, dict):
+            for key, val in keys.items():
+                dictionar[key] = dictionar[key] if key in dictionar else val
+            
+        if return_dict:
+            return dictionar
+    
+    # ------------------------------------------------------------------------------------------------------------------#
+    @staticmethod
+    def helpers_combine_features(df, features_to_plt, features_skip):
+        """
+        combines features on the base of include~ exclude~ features lists
+        >> Protected -- if inheritance
+        """
+        feat_to_plt = []
+
+        if features_to_plt is not None:
+            feat_to_plt = features_to_plt
+
+        if features_skip is not None:
+            feat_to_plt = [f for f in df.columns if f not in features_skip]
+
+        if len(feat_to_plt) == 0:
+            feat_to_plt = df.columns
+        
+        return feat_to_plt
+    
+    @staticmethod
+    def helpers_filters_repr(query: str):
+        """
+        takes query string and splits it to different lines with "and" separator
+        """
+        return '\n'.join(query.split("and"))
