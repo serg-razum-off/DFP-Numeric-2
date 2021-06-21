@@ -39,8 +39,13 @@ class NeuralManager:
         self.model = None
         self.scaler = None
         
-        self._train_test_init = dict()
+        # dict that stores data on which of the data collections were inited (X_train, X_test, y_train, y_test)
+        self._train_test_init = dict() 
         self._init_train_test_data(dir_path)
+        
+        self.training_seq_params = dict()
+        self.X_train_shape = set()
+        self.X_test_shape = set()
         
     
     def _init_train_test_data(self, dir_path, verbose=True):
@@ -69,8 +74,6 @@ class NeuralManager:
             print(">>> train-test inited: " , self._train_test_init)
             
             
-        
-        
     # ===============================  Normalize, Power Transform, Split to Squ =================================
     def normalize_X(self, scaler=None):
         """
@@ -85,8 +88,7 @@ class NeuralManager:
         return True
     
     # ------------------------------------------------------------------------------------------------------------------#    
-    @staticmethod
-    def _unroll_XY_to_sequence(X, y, sequence_length=4):
+    def _unroll_XY_to_sequence(self, X, y):
         # src: https://analyticsindiamag.com/anomaly-detection-in-temperature-sensor-data-using-lstm-rnn-model/
         
         if len(X) != len(y):
@@ -96,31 +98,63 @@ class NeuralManager:
         list_X = []
         list_y = []
         
-        for index in range(len(X) - sequence_length):
-            list_X.append(X[index: index + sequence_length])
-            list_y.append(y[index + sequence_length])
+        for index in range(len(X) - self.training_seq_params['seq_len']):
+            list_X.append(X[index: index + self.training_seq_params['seq_len']])
+            list_y.append(y[index + self.training_seq_params['seq_len']])
         
         return np.asarray(list_X), np.asarray(list_y)
 
     # ------------------------------------------------------------------------------------------------------------------#
-    def unroll_train_test_to_sequences(self, sequence_len):
+    def unroll_train_test_to_sequences(self):
         """
         Splits X_normalized to sequences
         >>> Example: [1,2,3,4,5] n_steps/ sequence_len=3 --> [1,2,3], [2,3,4], [3,4,5]
         """
         self.X_train_unrolled, self.y_train_unrolled = self._unroll_XY_to_sequence(
             X=self.X_train_normalized, 
-            y=self.y_train.values, 
-            sequence_length=sequence_len)
+            y=self.y_train.values)
         
         self.X_test_unrolled, self.y_test_unrolled = self._unroll_XY_to_sequence(
             X=self.X_test_normalized, 
-            y=self.y_test.values, 
-            sequence_length=sequence_len)    
+            y=self.y_test.values)    
         # ------------------------------------------------------------------------------------------------------------------#
     # TODO: PowerTransform
 
     # ===========================================  Model   =================================================
+    def set_train_test_data_shapes(self, verbose=True, shape_kwargs=None):
+            """
+            sets 
+                self.training_seq_params 
+
+            :param X: train or test; link to the data collection
+            :paaram **shape_kwargs:
+                >> seq_len
+                !! n_features sets here from self.X_train --> so all EDA and FeatureSelection is done before
+            """
+            self.training_seq_params = shape_kwargs
+            self.training_seq_params['n_features'] = len(self.X_train.columns)
+
+
+            self.X_train_shape = (
+                self.X_train.shape[0],
+                self.training_seq_params['seq_len'],
+                self.training_seq_params['n_features'],
+            )
+            self.X_test_shape = (
+                self.X_test.shape[0],
+                self.training_seq_params['seq_len'],
+                self.training_seq_params['n_features'],
+            )
+
+
+            if verbose:
+                print('self.training_seq_params --> ', self.training_seq_params)
+                print('self.X_train_shape --> ', self.X_train_shape)
+                print('self.X_test_shape --> ', self.X_test_shape)
+
+            return True
+    
+    # ------------------------------------------------------------------------------------------------------------------#
     def model_combine(self, template:list, compile_model=True, compile_dict=None, metrics=None, verbose=True):
         """
         Combines self.model from template
@@ -159,22 +193,22 @@ class NeuralManager:
         
         return True
     
+    
     # ------------------------------------------------------------------------------------------------------------------#
-    def model_fit(self, data_shape_train, data_shape_test, n_epoch=None, batch_size=32, verbose=2, early_stopping=True,
+    def model_fit(self, data_shape_test, n_epoch=None, batch_size=32, verbose=2, early_stopping=True,
                   print_charts=True, use_tensorboard=False, return_results=False):
         """
         Fits the self.model, plots dynamics
-        uses self.Xy_traintest_unrolled as input data for model
+        uses self.Xy_traintest_unrolled as input data for model        
         
-        :parameter data_shape_train: tuple to unpack in x_train.reshape 
         """
         if self.model is None:
             print(">>>No model detected. First you have to combine it...")
             return False
         if n_epoch is None:
             n_epoch = 10
-        if (data_shape_train is None) or (data_shape_test is None):
-            print(">>> data_shape is an obligatory param!!")
+        if (self.X_train_shape is None) or (self.X_test_shape is None):
+            print(">>> before fitting set shapes with self.set_train_test_data_shapes())
             return False
 
         n_features = self.X_train.shape[1]
@@ -236,6 +270,9 @@ class NeuralManager:
         
         return True
     
+    # ------------------------------------------------------------------------------------------------------------------#
+    def model_predict(self, X):
+        pass
     # ------------------------------------------------------------------------------------------------------------------#
 #     def plot_predicted_price(self):
 #         """"
