@@ -246,11 +246,19 @@ class DataManager:
         gc.collect()
     
     # ------------------------------------------------------------------------------------------------------------------#
-    def train_test_split(self, pct_train=.8, pct_test=.2, verbose=False):
+    def train_test_split(self, pct_train=.8, pct_test=.2, verbose=False, dates=None):
         """
         Splits data into train test sets -- first periods (pct_train) as a train, last periods (pct_test) as a test 
-        Should be used before normalization or power transform to avoid target leakage
+            >>> if dates is ['dateStart', 'dateEnd'] then this is a period for testing data. Train data is all the rest.
+        
+        Should be used before normalization or power transform to avoid target leakage        
+        
         """
+        if dates is not None:
+            self.X_test = self.data_btc.loc[dates[0]:dates[1]]
+            # self.X_train = self.data_btc. ## TODO
+            return True
+        
         if pct_train + pct_test != 1:
             pct_train = 1 - pct_test if pct_test != .2 else pct_train
             pct_test = 1 - pct_train if pct_train != .8 else pct_test                        
@@ -268,6 +276,8 @@ class DataManager:
         
         if verbose: 
             print("Split done with pct_train, pct_test -->", pct_train, pct_test)
+            
+        return True
     
     # ------------------------------------------------------------------------------------------------------------------#
     def save_csv(self, dataset=None, dataset_name="", path=None):

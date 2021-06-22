@@ -30,7 +30,7 @@ class NeuralManager:
         self.y_train = None
         self.y_test = None
         
-        self.pred_y = None # for predicted y
+        self.y_pred = None # for predicted y
         
         self.X_train_normalized = None
         self.X_test_normalized = None
@@ -211,22 +211,23 @@ class NeuralManager:
         n_features = self.X_train.shape[1]
         
         x_train = self.X_train_unrolled 
-        y_train = self.y_train_unrolled
         x_train = x_train.reshape(*self.X_train_shape)
+        y_train = self.y_train_unrolled
 
         x_test = self.X_test_unrolled 
-        y_test = self.y_test_unrolled
         x_test = x_test.reshape(*self.X_test_shape)
+        y_test = self.y_test_unrolled
         
         ES_callback = keras.callbacks.EarlyStopping(monitor='loss', patience=3) 
         fit_params = dict(
                             x=x_train, y=y_train,
                             epochs=n_epoch,
-                            batch_size=batch_size,
+#                             batch_size=batch_size,
                             validation_data=(x_test, y_test),
                             verbose=verbose,
                             callbacks=[ES_callback] 
         )
+        
         if not early_stopping:
             fit_params.pop('callbacks')
             
@@ -263,7 +264,7 @@ class NeuralManager:
         
         
         if return_results:
-            return val_loss# results
+            return results
         
         return True
     
@@ -281,8 +282,8 @@ class NeuralManager:
         
         test_y = pd.DataFrame(data=self.y_test_unrolled, index=self.y_test[self.training_seq_params['seq_len']:].index)        
         
-        if self.pred_y is None:
-            self.pred_y = pd.DataFrame(index=test_y.index, data=[
+        if self.y_pred is None:
+            self.y_pred = pd.DataFrame(index=test_y.index, data=[
                     self.model_predict(seq.reshape(1,
                                                    self.training_seq_params['seq_len'],
                                                    self.training_seq_params['n_features']))[0][0] 
@@ -292,7 +293,7 @@ class NeuralManager:
         
         fig, ax = plt.subplots(1, figsize=(15,5))
         
-        self.plt_plot_ts(self.pred_y, label="predicted_price", ax=ax, color="#ffa64d", linewidth=2, **kwargs)
+        self.plt_plot_ts(self.y_pred, label="predicted_price", ax=ax, color="#ffa64d", linewidth=2, **kwargs)
         self.plt_plot_ts(test_y, label="test_price", ax=ax, linewidth=1, **kwargs)
         
         plt.legend(['predicted_price','real_test_price'])
