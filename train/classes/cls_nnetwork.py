@@ -92,6 +92,10 @@ class NeuralManager:
     
     # ------------------------------------------------------------------------------------------------------------------#    
     def _unroll_XY_to_sequence(self, X, y):
+        """
+        Unrolling X and y to sequences of self.training_seq_params['seq_len'] len
+        """
+        
         # src: https://analyticsindiamag.com/anomaly-detection-in-temperature-sensor-data-using-lstm-rnn-model/
         
         if len(X) != len(y):
@@ -283,21 +287,25 @@ class NeuralManager:
         test_y = pd.DataFrame(data=self.y_test_unrolled, index=self.y_test[self.training_seq_params['seq_len']:].index)        
         
         if self.y_pred is None:
+            print('Calculating predictions...', end=" ")
             self.y_pred = pd.DataFrame(index=test_y.index, data=[
                     self.model_predict(seq.reshape(1,
                                                    self.training_seq_params['seq_len'],
                                                    self.training_seq_params['n_features']))[0][0] 
                                     for seq in self.X_test_unrolled], 
                         )
+            print('...finished.')
         
+        legend_loc = kwargs.pop('legend_loc') if 'legend_loc' in kwargs else 'upper right'
         
         fig, ax = plt.subplots(1, figsize=(15,5))
         
         self.plt_plot_ts(self.y_pred, label="predicted_price", ax=ax, color="#ffa64d", linewidth=2, **kwargs)
         self.plt_plot_ts(test_y, label="test_price", ax=ax, linewidth=1, **kwargs)
         
-        plt.legend(['predicted_price','real_test_price'])
-        plt.legend(loc='upper left')
+        plt.legend(loc=legend_loc)
+        
+            
         
     # ------------------------------------------------------------------------------------------------------------------#
     def plt_plot_ts(self, series: str, **kwargs):
