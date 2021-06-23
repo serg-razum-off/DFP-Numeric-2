@@ -107,7 +107,7 @@ class NeuralManager:
         
         for index in range(len(X) - self.training_seq_params['seq_len']):
             list_X.append(X[index: index + self.training_seq_params['seq_len']])
-            list_y.append(y[index + self.training_seq_params['seq_len']])
+            list_y.append(y[index + (self.training_seq_params['seq_len'])])
         
         return np.asarray(list_X), np.asarray(list_y)
 
@@ -287,14 +287,14 @@ class NeuralManager:
         test_y = pd.DataFrame(data=self.y_test_unrolled, index=self.y_test[self.training_seq_params['seq_len']:].index)        
         
         if self.y_pred is None:
-            print('Calculating predictions...', end=" ")
+            print('>>>Calculating predictions...', end=" ")
             self.y_pred = pd.DataFrame(index=test_y.index, data=[
                     self.model_predict(seq.reshape(1,
                                                    self.training_seq_params['seq_len'],
                                                    self.training_seq_params['n_features']))[0][0] 
                                     for seq in self.X_test_unrolled], 
                         )
-            print('...finished.')
+            print('done.')
         
         legend_loc = kwargs.pop('legend_loc') if 'legend_loc' in kwargs else 'upper right'
         

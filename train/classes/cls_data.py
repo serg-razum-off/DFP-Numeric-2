@@ -52,9 +52,10 @@ class DataManager:
         reading exch_rate csv        
         """
         btc_exch_raw = (
-            pd.read_csv(os.path.join(dir_path, file_name))
+            pd.read_csv(os.path.join(dir_path, file_name), parse_dates=True, index_col='Date')
                 .rename(columns={"Vol.": "Vol", "Change %": "Growth"}, inplace=False)
         )
+        
         # converting ['Vol'] fom 5M into 5e6
         # src: https://stackoverflow.com/questions/39684548/convert-the-string-2
         # -90k-to-2900-or-5-2m-to-5200000-in-pandas-dataframe
@@ -77,13 +78,13 @@ class DataManager:
                     .apply(lambda x: x.str.replace(',', '').astype(float))
             )
         # converting ['Date'] str to dates
-        btc_exch_raw.loc[:, 'Date'] = pd.to_datetime(btc_exch_raw['Date'])
+#         btc_exch_raw.loc[:, 'Date'] = pd.to_datetime(btc_exch_raw['Date'])
 
         # converting ['Change %'] to float
         btc_exch_raw['Growth'] = btc_exch_raw['Growth'].str.replace('%', '').astype(
             float) / 100
 
-        self.data_btc = btc_exch_raw.set_index("Date")
+        self.data_btc = btc_exch_raw.sort_index(ascending=True)
         del btc_exch_raw
         
         gc.collect()
@@ -103,20 +104,19 @@ class DataManager:
         file_names = list(map(lambda X: X.split('/')[-1], files_paths))
 
         for i, file_path in enumerate(files_paths):
-            curr_file = pd.read_csv(file_path)
-            curr_file['Date'] = pd.to_datetime(curr_file['Date'])
+            curr_file = pd.read_csv(file_path, index_col='Date', parse_dates=True)
             curr_file['Value'] = curr_file['Value'].astype(float)
             # if 'TOTBC' in file_path:
             #     curr_file['BTC_MINED'] = -curr_file['Value'].diff()
             #     curr_file['BTC_MINED'].fillna(method='bfill', inplace=True)  # filling last day (Nan) as one before
 
-            curr_file.set_index('Date', inplace=True)
+
             # rename Value col to the core part of filename
             curr_file.rename(columns={"Value": file_names[i].split('-')[-1].split(".")[0]},
                              inplace=True)
 
             self.data_btc = self.data_btc.merge(curr_file, right_index=True, left_index=True, how='left') # leftjoin
-        # gc
+        # gc        
         curr_file = None
         gc.collect()
 
@@ -175,6 +175,7 @@ class DataManager:
         base_series = (self.data_btc[f"{base_feat}"] 
                            if not fn_prop['corr_to_pos'] 
                            else self.data_btc[f"{base_feat}"] + abs(self.data_btc[f"{base_feat}"].min()) + 1) # 1 for logarithm
+        
         new_feat = fn(base_series)
         new_feat = pd.Series(new_feat).fillna(method=fn_prop['fillna_meth'])
                              
@@ -246,17 +247,21 @@ class DataManager:
         gc.collect()
     
     # ------------------------------------------------------------------------------------------------------------------#
-    def train_test_split(self, pct_train=.8, pct_test=.2, verbose=False, dates=None):
+    def train_test_split(self, pct_train=.8, pct_test=.2, verbose=False, train_dates=None, test_dates=None):
         """
         Splits data into train test sets -- first periods (pct_train) as a train, last periods (pct_test) as a test 
-            >>> if dates is ['dateStart', 'dateEnd'] then this is a period for testing data. Train data is all the rest.
+            >>> if train_dates is ['dateStart', 'dateEnd'] 
+                then this is a period for training data. 
+                Test data is all the rest.
         
         Should be used before normalization or power transform to avoid target leakage        
         
         """
-        if dates is not None:
-            self.X_test = self.data_btc.loc[dates[0]:dates[1]]
-            # self.X_train = self.data_btc. ## TODO
+        if train_dates is not None:
+            self.X_train = self.data_btc.loc[train_dates[0]:train_dates[1]]
+            self.X_test = self.data_btc.loc[test_dates[0]:test_dates[1]]
+            self.y_test = self.X_test.pop("Price")
+            self.y_train = self.X_train.pop("Price")
             return True
         
         if pct_train + pct_test != 1:
@@ -275,7 +280,10 @@ class DataManager:
         self.y_train = self.X_train.pop("Price")
         
         if verbose: 
-            print("Split done with pct_train, pct_test -->", pct_train, pct_test)
+            (
+                print("Split done with pct_train, pct_test -->", pct_train, pct_test) if train_dates is None 
+                else print("Split done according to passed dates")
+            )
             
         return True
     
