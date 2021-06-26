@@ -10,7 +10,7 @@ import numpy as np
 import glob, os, gc
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, PowerTransformer
 
 
 class NeuralManager:
@@ -34,6 +34,8 @@ class NeuralManager:
         
         self.X_train_normalized = None
         self.X_test_normalized = None
+        self.X_train_transformed = None
+        self.X_test_transformed = None
         
         #NP arrays
         self.X_train_unrolled = None
@@ -41,6 +43,7 @@ class NeuralManager:
         
         self.model = None
         self.scaler = None
+        self.transformer = None
         
         # dict that stores data on which of the data collections were inited (X_train, X_test, y_train, y_test)
         self._train_test_init = dict() 
@@ -62,19 +65,21 @@ class NeuralManager:
             
             if "X_train" in file_name:
                 self.X_train = pd.read_csv(file_path, index_col="Date", parse_dates=True).sort_index(ascending=True)
-                self._train_test_init['X_train'] = True
+                self._train_test_init['X_train'] = len(self.X_train)
             if "X_test" in file_name:
                 self.X_test = pd.read_csv(file_path, index_col="Date", parse_dates=True).sort_index(ascending=True)
-                self._train_test_init['X_test'] = True
+                self._train_test_init['X_test'] = len(self.X_test)
             if "y_train" in file_name:
                 self.y_train = pd.read_csv(file_path, index_col="Date", parse_dates=True).sort_index(ascending=True)
-                self._train_test_init['y_train'] = True
+                self._train_test_init['y_train'] = len(self.y_train)
             if "y_test" in file_name:
                 self.y_test = pd.read_csv(file_path, index_col="Date", parse_dates=True).sort_index(ascending=True)
-                self._train_test_init['y_test'] = True
+                self._train_test_init['y_test'] = len(self.y_test)
                 
         if verbose:
-            print(">>> train-test inited: " , self._train_test_init)
+            print(">>> train-test inited: " , "\n",
+                  "\tX_train len --> ", self._train_test_init['X_train'], "y_train len --> ", self._train_test_init['y_train'], "\n",
+                  "\tX_test len --> ", self._train_test_init['X_test'], "y_test len --> ", self._train_test_init['y_test'])
             
             
     # ===============================  Normalize, Power Transform, Split to Squ =================================
@@ -90,6 +95,21 @@ class NeuralManager:
                 
         return True
     
+    # ------------------------------------------------------------------------------------------------------------------#    
+    def transform_X(self, transformer=None):
+        """
+        normalizes data with scaler (default is StandardScaler)
+        """
+        if (self.X_train_normalized is None) or (self.X_test is None):
+            print(">>>X_ data is not normalized. Normalize it first...")
+            return False
+        
+        self.transformer = PowerTransformer(method='yeo-johnson') if transformer is None else transformer()
+        
+        self.X_train_transformed = self.transformer.fit_transform(self.X_train)
+        self.X_test_transformed = self.transformer.transform(self.X_test)
+                
+        return True
     # ------------------------------------------------------------------------------------------------------------------#    
     def _unroll_XY_to_sequence(self, X, y):
         """
@@ -112,20 +132,27 @@ class NeuralManager:
         return np.asarray(list_X), np.asarray(list_y)
 
     # ------------------------------------------------------------------------------------------------------------------#
-    def unroll_train_test_to_sequences(self):
+    def unroll_train_test_to_sequences(self, X=None, y=None):
         """
         Splits X_normalized to sequences
         >>> Example: [1,2,3,4,5] n_steps/ sequence_len=3 --> [1,2,3], [2,3,4], [3,4,5]
         """
+        
+        if (X is not None) and (y is not None):
+            print(">>> Called with outer X and y; returning them unrolled...")
+            return _unroll_XY_to_sequence(X, y)
+        
         self.X_train_unrolled, self.y_train_unrolled = self._unroll_XY_to_sequence(
-            X=self.X_train_normalized, 
+            X=self.X_train_normalized if self.X_train_transformed is None else self.X_train_transformed, 
             y=self.y_train.values)        
         self.X_train_shape.insert(0, self.X_train_unrolled.shape[0])
         
         self.X_test_unrolled, self.y_test_unrolled = self._unroll_XY_to_sequence(
-            X=self.X_test_normalized, 
+            X=self.X_test_normalized if self.X_test_transformed is None else self.X_test_transformed, 
             y=self.y_test.values)
         self.X_test_shape.insert(0, self.X_test_unrolled.shape[0])
+        
+        return True
         # ------------------------------------------------------------------------------------------------------------------#
     # TODO: PowerTransform
 
@@ -212,7 +239,7 @@ class NeuralManager:
             print(">>> before fitting set shapes with self.set_train_test_data_shapes()")
             return False
 
-        n_features = self.X_train.shape[1]
+        n_features = self.X_train.shape[1] #SR: ?? think if we need this
         
         x_train = self.X_train_unrolled 
         x_train = x_train.reshape(*self.X_train_shape)
@@ -226,7 +253,7 @@ class NeuralManager:
         fit_params = dict(
                             x=x_train, y=y_train,
                             epochs=n_epoch,
-#                             batch_size=batch_size,
+                            batch_size=batch_size,
                             validation_data=(x_test, y_test),
                             verbose=verbose,
                             callbacks=[ES_callback] 
@@ -263,7 +290,7 @@ class NeuralManager:
             ax.legend(loc='upper right')
             
             ehpochs_before_stop = len(loss)
-            ax.text(x=ehpochs_before_stop, y=loss[-1], s=f'{loss[-1]:.1f}')
+#             ax.text(x=ehpochs_before_stop, y=loss[-1], s=f'{loss[-1]:.1f}')
             ax.text(x=ehpochs_before_stop, y=val_loss[-1], s=f'{val_loss[-1]:.1f}')
         
         
@@ -288,8 +315,9 @@ class NeuralManager:
         
         if self.y_pred is None:
             print('>>>Calculating predictions...', end=" ")
-            self.y_pred = pd.DataFrame(index=test_y.index, data=[
-                    self.model_predict(seq.reshape(1,
+            self.y_pred = pd.DataFrame(index=test_y.index, 
+                                       data=[
+                                               self.model_predict(seq.reshape(1,
                                                    self.training_seq_params['seq_len'],
                                                    self.training_seq_params['n_features']))[0][0] 
                                     for seq in self.X_test_unrolled], 
@@ -509,10 +537,15 @@ class NeuralManager:
         
         return feat_to_plt
     
+    # ------------------------------------------------------------------------------------------------------------------#
     @staticmethod
     def helpers_filters_repr(query: str):
         """
         takes query string and splits it to different lines with "and" separator
         """
         return '\n'.join(query.split("and"))
+    
+    # ------------------------------------------------------------------------------------------------------------------#
+
+
     

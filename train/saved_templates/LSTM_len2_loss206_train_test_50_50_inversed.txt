@@ -1,0 +1,75 @@
+### 206
+# LSTM Architecture for hard periods train-test split
+
+weights_init = GlorotNormal()
+
+template_Stacked_LSTM = [
+    Bidirectional(
+        LSTM(120, 
+            activation=LeakyReLU(alpha=0.3), 
+            kernel_initializer=weights_init, 
+#                     return_sequences=True,
+            ),
+        input_shape=input_model_shape,
+        ),
+         
+
+#     Bidirectional(LSTM(400,                        
+#                        activation=LeakyReLU(alpha=0.3), 
+#                        return_sequences=True,                       
+#             )),
+   
+
+#     Dense(100),
+#     Dense(15),
+#     Dense(100, 
+#           kernel_initializer=weights_init
+#          ),
+    Dense(100, 
+          kernel_initializer=weights_init
+         ),
+    Dense(50, 
+          kernel_initializer=weights_init
+         ),
+    Dense(25, 
+          kernel_initializer=weights_init
+         ),
+    Dense(1)
+]
+
+### 230
+weights_init = GlorotNormal()
+
+template_Stacked_LSTM = [
+    LSTM(150, 
+#        # cuDNN criteria:
+#           activation='tanh',
+#           recurrent_activation='sigmoid',
+#           recurrent_dropout=0,
+#           unroll=False,
+#           use_bias=True,
+       # other params
+                    activation=LeakyReLU(alpha=0.3), 
+                    kernel_initializer=weights_init, 
+#                     return_sequences=True,
+                    input_shape=input_model_shape,
+            ),
+         
+
+#     Bidirectional(LSTM(400,                        
+#                        activation=LeakyReLU(alpha=0.3), 
+#                        return_sequences=True,                       
+#             )),
+   
+
+#     Dense(100),
+#     Dense(15),
+    Dense(50, 
+          kernel_initializer=weights_init
+         ),
+    Dense(25, 
+          kernel_initializer=weights_init
+         ),
+    Dense(1)
+]
+

@@ -247,12 +247,13 @@ class DataManager:
         gc.collect()
     
     # ------------------------------------------------------------------------------------------------------------------#
-    def train_test_split(self, pct_train=.8, pct_test=.2, verbose=False, train_dates=None, test_dates=None):
+    def train_test_split(self, pct_train=.8, pct_test=.2, verbose=True, train_dates=None, test_dates=None, inverse=False):
         """
         Splits data into train test sets -- first periods (pct_train) as a train, last periods (pct_test) as a test 
             >>> if train_dates is ['dateStart', 'dateEnd'] 
                 then this is a period for training data. 
                 Test data is all the rest.
+            >>> inverse: if to swap train and test datasets. (So that train will be done on latest data and testing on first ones) (TODO)
         
         Should be used before normalization or power transform to avoid target leakage        
         
@@ -268,9 +269,9 @@ class DataManager:
             pct_train = 1 - pct_test if pct_test != .2 else pct_train
             pct_test = 1 - pct_train if pct_train != .8 else pct_test                        
             
-        # Getting
-        idx_num = int(self.data_btc.index.shape[0] * pct_test)
-        idx_name = self.data_btc.iloc[idx_num].name
+        # Calculating brink
+        idx_num_train = int(self.data_btc.index.shape[0] * pct_train)
+        idx_name = self.data_btc.iloc[idx_num_train].name
         index = self.data_btc.index
         
         # Splitting
@@ -281,7 +282,7 @@ class DataManager:
         
         if verbose: 
             (
-                print("Split done with pct_train, pct_test -->", pct_train, pct_test) if train_dates is None 
+                print("Split done with pct_train, pct_test -->", f"{pct_train:.2f}", "/", f"{pct_test:.2f}") if train_dates is None 
                 else print("Split done according to passed dates")
             )
             
@@ -637,9 +638,58 @@ class DataManager:
         
         return feat_to_plt
     
+    # ------------------------------------------------------------------------------------------------------------------#
     @staticmethod
     def helpers_filters_repr(query: str):
         """
         takes query string and splits it to different lines with "and" separator
         """
         return '\n'.join(query.split("and"))
+    
+    
+    # ------------------------------------------------------------------------------------------------------------------#
+    @staticmethod    
+    def send_gmail(notebook_name=None, body_message=None, notebook_link=None):
+        """
+        Sends notification that Runtime has executed all tasks
+            Example of calling:
+            send_gmail('try', 'https://colab.research.google.com/drive/140IJTJaip02kdKXCw-RHUnZYDRjyuCNB#scrollTo=itIVR0U7TfjE')
+        :param notebook_name: txt, user input to be in the Subj of the Email
+        :return:
+        """
+        if notebook_name is None:
+            notebook_name = "<noname>"
+        
+        if body_message is None:
+            body_message = "The runtime has finished exetuting..."
+        
+        if notebook_link is None:
+            notebook_link="<no_link>"
+            
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        if body_message is None:
+            body_message = f'Link to notebook {notebook_link}'
+        mail_content = body_message  # Email Body
+
+        # The mail addresses and password
+        sender_address = 'auto.runtime.notificator@gmail.com'
+        sender_pass = 'AutoJ,kf4yjcnmGM'
+        receiver_address = 'sergiy.razumov@gmail.com'
+        # Setup the MIME
+        message = MIMEMultipart()
+        message['From'] = sender_address
+        message['To'] = receiver_address
+        message['Subject'] = f'Runtime notification for {notebook_name}'  # The subject line
+
+        # The body and the attachments for the mail
+        message.attach(MIMEText(mail_content, 'plain'))
+        # Create SMTP session for sending the mail
+        session = smtplib.SMTP('smtp.gmail.com', 587)  # use gmail with port
+        session.starttls()  # enable security
+        session.login(sender_address, sender_pass)  # login with mail_id and password
+        text = message.as_string()
+        session.sendmail(sender_address, receiver_address, text)
+        session.quit()
+        print('>>> Mail Sent')
