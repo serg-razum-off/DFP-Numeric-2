@@ -30,6 +30,8 @@ class NeuralManager:
         self.y_train = None
         self.y_test = None
         
+        self.Xy_nulls = None
+        
         self.y_pred = None # for predicted y
         
         self.X_train_normalized = None
@@ -54,6 +56,16 @@ class NeuralManager:
         self.X_test_shape = list()
         
     
+    def count_nulls_in_data(self, verbose=True):
+        self.Xy_nulls = (
+            self.X_test.isnull().values.sum() + 
+            self.X_train.isnull().values.sum() + 
+            self.y_test.isnull().values.sum() + 
+            self.y_train.isnull().values.sum()
+        )        
+        if verbose:
+            print("NULLS in data --> ", self.Xy_nulls)
+        
     def _init_train_test_data(self, dir_path, verbose=True):
         """
         gets train test data
@@ -75,11 +87,16 @@ class NeuralManager:
             if "y_test" in file_name:
                 self.y_test = pd.read_csv(file_path, index_col="Date", parse_dates=True).sort_index(ascending=True)
                 self._train_test_init['y_test'] = len(self.y_test)
-                
+        
+        
+        self.count_nulls_in_data()
+        
         if verbose:
             print(">>> train-test inited: " , "\n",
                   "\tX_train len --> ", self._train_test_init['X_train'], "y_train len --> ", self._train_test_init['y_train'], "\n",
-                  "\tX_test len --> ", self._train_test_init['X_test'], "y_test len --> ", self._train_test_init['y_test'])
+                  "\tX_test len --> ", self._train_test_init['X_test'], "y_test len --> ", self._train_test_init['y_test'], "\n",
+                  "\tNULLS in data --> ", self.Xy_nulls
+                 )
             
             
     # ===============================  Normalize, Power Transform, Split to Squ =================================
@@ -139,8 +156,8 @@ class NeuralManager:
         """
         
         if (X is not None) and (y is not None):
-            print(">>> Called with outer X and y; returning them unrolled...")
-            return _unroll_XY_to_sequence(X, y)
+            print(">>> Method called with outer X and y. Returning X, y unrolled...")
+            return self._unroll_XY_to_sequence(X, y)
         
         self.X_train_unrolled, self.y_train_unrolled = self._unroll_XY_to_sequence(
             X=self.X_train_normalized if self.X_train_transformed is None else self.X_train_transformed, 
@@ -290,7 +307,7 @@ class NeuralManager:
             ax.legend(loc='upper right')
             
             ehpochs_before_stop = len(loss)
-#             ax.text(x=ehpochs_before_stop, y=loss[-1], s=f'{loss[-1]:.1f}')
+            ax.text(x=ehpochs_before_stop, y=loss[-1], s=f'{loss[-1]:.1f}')
             ax.text(x=ehpochs_before_stop, y=val_loss[-1], s=f'{val_loss[-1]:.1f}')
         
         
@@ -306,11 +323,16 @@ class NeuralManager:
     
     # ========================================  Plotting  ==============================================
 
-    def plot_predicted_vs_test_price(self, **kwargs):
+    def plot_predicted_vs_test_price(self, date_index=None, **kwargs):
         """
         Plots predicted price for test part of the data 
         """
         
+        legend_loc = kwargs.pop('legend_loc') if 'legend_loc' in kwargs else 'upper right'
+        
+                    
+        # for self.--> examples
+        # training_seq_params['seq_len'] as seq_len is X_days_data to predict one y.
         test_y = pd.DataFrame(data=self.y_test_unrolled, index=self.y_test[self.training_seq_params['seq_len']:].index)        
         
         if self.y_pred is None:
@@ -324,16 +346,13 @@ class NeuralManager:
                         )
             print('done.')
         
-        legend_loc = kwargs.pop('legend_loc') if 'legend_loc' in kwargs else 'upper right'
-        
+                
         fig, ax = plt.subplots(1, figsize=(15,5))
         
         self.plt_plot_ts(self.y_pred, label="predicted_price", ax=ax, color="#ffa64d", linewidth=2, **kwargs)
         self.plt_plot_ts(test_y, label="test_price", ax=ax, linewidth=1, **kwargs)
         
         plt.legend(loc=legend_loc)
-        
-            
         
     # ------------------------------------------------------------------------------------------------------------------#
     def plt_plot_ts(self, series: str, **kwargs):

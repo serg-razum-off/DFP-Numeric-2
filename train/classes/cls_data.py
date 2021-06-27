@@ -105,7 +105,7 @@ class DataManager:
 
         for i, file_path in enumerate(files_paths):
             curr_file = pd.read_csv(file_path, index_col='Date', parse_dates=True)
-            curr_file['Value'] = curr_file['Value'].astype(float)
+            curr_file['Value'] = curr_file['Value'].astype(float).fillna(method='bfill', inplace=True)
             # if 'TOTBC' in file_path:
             #     curr_file['BTC_MINED'] = -curr_file['Value'].diff()
             #     curr_file['BTC_MINED'].fillna(method='bfill', inplace=True)  # filling last day (Nan) as one before
