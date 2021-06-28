@@ -128,9 +128,10 @@ class NeuralManager:
                 
         return True
     # ------------------------------------------------------------------------------------------------------------------#    
-    def _unroll_XY_to_sequence(self, X, y):
+    def _unroll_XY_to_sequence(self, X, y, asarray=True, dataframe=False):
         """
         Unrolling X and y to sequences of self.training_seq_params['seq_len'] len
+        not a @staticmethod as we need some settings from self.training_seq_params
         """
         
         # src: https://analyticsindiamag.com/anomaly-detection-in-temperature-sensor-data-using-lstm-rnn-model/
@@ -142,11 +143,16 @@ class NeuralManager:
         list_X = []
         list_y = []
         
-        for index in range(len(X) - self.training_seq_params['seq_len']):
-            list_X.append(X[index: index + self.training_seq_params['seq_len']])
-            list_y.append(y[index + (self.training_seq_params['seq_len'])])
-        
-        return np.asarray(list_X), np.asarray(list_y)
+        if not dataframe:
+            for index in range(len(X) - self.training_seq_params['seq_len']):
+                list_X.append(X[index: index + self.training_seq_params['seq_len']])
+                list_y.append(y[index + (self.training_seq_params['seq_len'])])
+        else:
+            for index in range(len(X) - self.training_seq_params['seq_len']):
+                list_X.append(X.iloc[index: index + self.training_seq_params['seq_len']])
+                list_y.append(y.iloc[index + (self.training_seq_params['seq_len'])])
+            
+        return (np.asarray(list_X), np.asarray(list_y)) if asarray else (list_X, list_y)
 
     # ------------------------------------------------------------------------------------------------------------------#
     def unroll_train_test_to_sequences(self, X=None, y=None):
@@ -185,7 +191,7 @@ class NeuralManager:
                 !! n_features sets here from self.X_train --> so all EDA and FeatureSelection is done before
             """
             self.training_seq_params = shape_kwargs
-            self.training_seq_params['n_features'] = len([c for c in self.X_train.columns if "Price" not in c])
+            self.training_seq_params['n_features'] = len([c for c in self.X_train.columns])
 
             for shape in [self.X_train_shape, self.X_test_shape]:
                 shape.append(self.training_seq_params['seq_len'])
@@ -240,7 +246,7 @@ class NeuralManager:
     
     
     # ------------------------------------------------------------------------------------------------------------------#
-    def model_fit(self, n_epoch=None, batch_size=32, verbose=2, early_stopping=True,
+    def model_fit(self, n_epoch=None, batch_size=32, verbose=0, early_stopping=True,
                   print_charts=True, use_tensorboard=False, return_results=False):
         """
         Fits the self.model, plots dynamics
@@ -266,7 +272,7 @@ class NeuralManager:
         x_test = x_test.reshape(*self.X_test_shape)
         y_test = self.y_test_unrolled
         
-        ES_callback = keras.callbacks.EarlyStopping(monitor='loss', patience=3) 
+        ES_callback = keras.callbacks.EarlyStopping(monitor='loss', patience=5) 
         fit_params = dict(
                             x=x_train, y=y_train,
                             epochs=n_epoch,

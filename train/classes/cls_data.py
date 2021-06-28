@@ -105,10 +105,7 @@ class DataManager:
 
         for i, file_path in enumerate(files_paths):
             curr_file = pd.read_csv(file_path, index_col='Date', parse_dates=True)
-            curr_file['Value'] = curr_file['Value'].astype(float).fillna(method='bfill', inplace=True)
-            # if 'TOTBC' in file_path:
-            #     curr_file['BTC_MINED'] = -curr_file['Value'].diff()
-            #     curr_file['BTC_MINED'].fillna(method='bfill', inplace=True)  # filling last day (Nan) as one before
+            curr_file['Value'] = curr_file['Value'].astype(float)
 
 
             # rename Value col to the core part of filename
@@ -117,7 +114,6 @@ class DataManager:
 
             self.data_btc = self.data_btc.merge(curr_file, right_index=True, left_index=True, how='left') # leftjoin
         # gc        
-        curr_file = None
         gc.collect()
 
         # fillnulls forward. (if null happens is on the later date, fill it from the earlier date)
