@@ -7,7 +7,6 @@
 6,BCHAIN-CPTRA.csv,Bitcoin Cost Per Transaction,https://www.quandl.com/data/BCHAIN/CPTRA-Bitcoin-Cost-Per-Transaction,https://www.quandl.com/api/v3/datasets/BCHAIN/CPTRA.csv?api_key=bTPes7LjqbErjvtYRsWu
 7,BCHAIN-TRVOU.csv,Bitcoin USD Exchange Trade Volume,https://www.quandl.com/data/BCHAIN/TRVOU-Bitcoin-USD-Exchange-Trade-Volume,https://www.quandl.com/api/v3/datasets/BCHAIN/TRVOU.csv?api_key=bTPes7LjqbErjvtYRsWu
 8,BCHAIN-MWTRV.csv,Bitcoin My Wallet Transaction Volume,https://www.quandl.com/data/BCHAIN/MWTRV-Bitcoin-My-Wallet-Transaction-Volume,https://www.quandl.com/api/v3/datasets/BCHAIN/MWTRV.csv?api_key=bTPes7LjqbErjvtYRsWu
-9,BCHAIN-MWNUS.csv,Bitcoin My Wallet Number of Users,https://www.quandl.com/data/BCHAIN/MWNUS-Bitcoin-My-Wallet-Number-of-Users,https://www.quandl.com/api/v3/datasets/BCHAIN/MWNUS.csv?api_key=bTPes7LjqbErjvtYRsWu
 10,BCHAIN-TRFEE.csv,Bitcoin Total Transaction Fees,https://www.quandl.com/data/BCHAIN/TRFEE-Bitcoin-Total-Transaction-Fees,https://www.quandl.com/api/v3/datasets/BCHAIN/TRFEE.csv?api_key=bTPes7LjqbErjvtYRsWu
 11,BCHAIN-TOUTV.csv,Bitcoin Total Output Volume,https://www.quandl.com/data/BCHAIN/TOUTV-Bitcoin-Total-Output-Volume,https://www.quandl.com/api/v3/datasets/BCHAIN/TOUTV.csv?api_key=bTPes7LjqbErjvtYRsWu
 12,BCHAIN-NTRAT.csv,Bitcoin Total Number of Transactions,https://www.quandl.com/data/BCHAIN/NTRAT-Bitcoin-Total-Number-of-Transactions,https://www.quandl.com/api/v3/datasets/BCHAIN/NTRAT.csv?api_key=bTPes7LjqbErjvtYRsWu

@@ -272,7 +272,7 @@ class NeuralManager:
         x_test = x_test.reshape(*self.X_test_shape)
         y_test = self.y_test_unrolled
         
-        ES_callback = keras.callbacks.EarlyStopping(monitor='loss', patience=5) 
+        ES_callback = keras.callbacks.EarlyStopping(monitor='loss', patience=15) 
         fit_params = dict(
                             x=x_train, y=y_train,
                             epochs=n_epoch,
