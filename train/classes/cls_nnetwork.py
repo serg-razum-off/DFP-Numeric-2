@@ -128,7 +128,7 @@ class NeuralManager:
                 
         return True
     # ------------------------------------------------------------------------------------------------------------------#    
-    def _unroll_XY_to_sequence(self, X, y, asarray=True, dataframe=False):
+    def _unroll_XY_to_sequence(self, X, y, asarray=True, dataframe=False, train=False, shift=0):
         """
         Unrolling X and y to sequences of self.training_seq_params['seq_len'] len
         not a @staticmethod as we need some settings from self.training_seq_params
@@ -144,18 +144,24 @@ class NeuralManager:
         list_y = []
         
         if not dataframe:
-            for index in range(len(X) - self.training_seq_params['seq_len']):
+            for index in range(len(X) - (self.training_seq_params['seq_len'] + shift)): # +shift is a trial attempt for better predicting
                 list_X.append(X[index: index + self.training_seq_params['seq_len']])
-                list_y.append(y[index + (self.training_seq_params['seq_len'])])
+                list_y.append(y[index + 
+                                (self.training_seq_params['seq_len'] + shift)
+                               ]) 
         else:
-            for index in range(len(X) - self.training_seq_params['seq_len']):
+            for index in range(len(X) - (self.training_seq_params['seq_len'] + shift)):
                 list_X.append(X.iloc[index: index + self.training_seq_params['seq_len']])
-                list_y.append(y.iloc[index + (self.training_seq_params['seq_len'])])
+                list_y.append(
+                    y.iloc[index + 
+                           (self.training_seq_params['seq_len'] + shift)
+                           + shift
+                          ]) 
             
         return (np.asarray(list_X), np.asarray(list_y)) if asarray else (list_X, list_y)
 
     # ------------------------------------------------------------------------------------------------------------------#
-    def unroll_train_test_to_sequences(self, X=None, y=None):
+    def unroll_train_test_to_sequences(self, X=None, y=None, shift=0):
         """
         Splits X_normalized to sequences
         >>> Example: [1,2,3,4,5] n_steps/ sequence_len=3 --> [1,2,3], [2,3,4], [3,4,5]
@@ -167,12 +173,16 @@ class NeuralManager:
         
         self.X_train_unrolled, self.y_train_unrolled = self._unroll_XY_to_sequence(
             X=self.X_train_normalized if self.X_train_transformed is None else self.X_train_transformed, 
-            y=self.y_train.values)        
+            y=self.y_train.values,
+            shift=shift
+        )        
         self.X_train_shape.insert(0, self.X_train_unrolled.shape[0])
         
         self.X_test_unrolled, self.y_test_unrolled = self._unroll_XY_to_sequence(
             X=self.X_test_normalized if self.X_test_transformed is None else self.X_test_transformed, 
-            y=self.y_test.values)
+            y=self.y_test.values,
+            shift=shift
+        )
         self.X_test_shape.insert(0, self.X_test_unrolled.shape[0])
         
         return True
