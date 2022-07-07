@@ -1,5 +1,14 @@
 # DFP-Numeric-2
 
+This is a repo for DS project on Bitcoin Prediction. 
+Project was created in relation to product DS bootcamp that I was undergoing. 
+Project was accepted by the bootcamp leader and was left unfinished on the stage of 90% ready.
+
+Core characteristics:
+--> Docker usage
+--> Python Classes usage
+--> Jupyter Notebook as a modeling environment
+
 ###**Project name**: Bitcoin Price Prediction
 
 **GitHub**: https://github.com/Serg-Protsenko/DFP-Numeric-2
