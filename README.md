@@ -9,17 +9,17 @@ Core characteristics:
 --> Python Classes usage
 --> Jupyter Notebook as a modeling environment
 
-###**Project name**: Bitcoin Price Prediction
+### **Project name**: Bitcoin Price Prediction
 
 **GitHub**: https://github.com/Serg-Protsenko/DFP-Numeric-2
 
-###**Docker**: <br>
+### **Docker**: <br>
 <u>Creating the image</u> -- from the /install folder:<br>
 $ docker build . -t btc_price_prediction <br>
 <u>Running the image</u> -- from the project folder:<br> 
 $ docker run -v $(pwd):/tf -it --rm -p 8888:8888 btc_price_prediction
 
-#####**Docker file**:
+##### **Docker file**:
 ```commandline
 # Details of the base image are here: https://hub.docker.com/r/tensorflow/tensorflow/tags
 # It runs Python 3.6
@@ -42,7 +42,7 @@ COPY ./requirements.txt ./
 RUN pip install -r requirements.txt
 ```
 
-###**Data sources**: <br>
+### **Data sources**: <br>
 * Bitcoin Exchange Rates Statistics https://www.investing.com/crypto/bitcoin/historical-data
 * Bitcoin Average Block Size https://www.quandl.com/data/BCHAIN/AVBLS-Bitcoin-Average-Block-Size
 * Bitcoin Hash Rate https://www.quandl.com/data/BCHAIN/HRATE-Bitcoin-Hash-Rate 
