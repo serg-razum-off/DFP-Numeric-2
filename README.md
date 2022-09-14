@@ -3,6 +3,7 @@
 This is a repo for DS project on Bitcoin Prediction. 
 Project was created in relation to product DS bootcamp that I was undergoing. 
 Project was accepted by the bootcamp leader and was left unfinished on the stage of 90% ready.
+This was a team of 2 people project, yet 99% of commits are mine =)
 
 Core characteristics:
 --> Docker usage
